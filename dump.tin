@@ -1,0 +1,1939 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump (info)
+        (set <info "display"> "text")
+        (set <info "indent-pattern"> (cfg-get-or-default "indent-pattern" <info "default">))
+        (gtk-text-buffer-set-text <info "text"> "")
+        (opt (dump0 info))
+        (assoc-clr info "display")
+        (assoc-clr info "indent-pattern") )
+
+(defnet dump-file (info path)
+        (dump-file0 info path "file") )
+
+(defnet dump-bbcode (info path)
+        (deflocal default-info failure)
+
+        (set default-info <info "default">)
+        (set <info "bbcode-color-section"> (color2hex (cfg-get-or-default "bbcode-color-section" default-info)))
+        (set <info "bbcode-color-field"> (color2hex (cfg-get-or-default "bbcode-color-field" default-info)))
+        (set <info "bbcode-color-value"> (color2hex (cfg-get-or-default "bbcode-color-value" default-info)))
+        (set <info "bbcode-bold-section"> (cfg-get-or-default "bbcode-bold-section" default-info))
+        (set <info "bbcode-underline-section"> (cfg-get-or-default "bbcode-underline-section" default-info))
+        (set <info "bbcode-bold-field"> (cfg-get-or-default "bbcode-bold-field" default-info))
+        (set <info "bbcode-underline-field"> (cfg-get-or-default "bbcode-underline-field" default-info))
+        (set <info "bbcode-bold-value"> (cfg-get-or-default "bbcode-bold-value" default-info))
+        (set <info "bbcode-underline-value"> (cfg-get-or-default "bbcode-underline-value" default-info))
+        (alt    (seq    (dump-file0 info path "bbcode")
+                        (set failure false) )
+                (set failure true) )
+        (assoc-clr info "bbcode-color-section")
+        (assoc-clr info "bbcode-color-field")
+        (assoc-clr info "bbcode-color-value")
+        (assoc-clr info "bbcode-bold-section")
+        (assoc-clr info "bbcode-underline-section")
+        (assoc-clr info "bbcode-bold-field")
+        (assoc-clr info "bbcode-underline-field")
+        (assoc-clr info "bbcode-bold-value")
+        (assoc-clr info "bbcode-underline-value")
+        (not failure) )
+
+(defnet dump-html (info path)
+        (dump-file0 info path "html") )
+
+(defnet dump-file0 (info path display)
+        (deflocal f s)
+
+        (dump-file1 info display s)
+        (alt    (seq    (= path undef)
+                        (opt (info-text info s)) )
+                (seq    (if (cfg-get-or-default "enabled-utf8bom" <info "default">)
+                        then    (if (<> (utf8-length s) (length s))
+                                then    (set s (+ (utf8-bom) s)) ))
+                        (if (cms-windows)
+                        then    (set s (find-and-replace s "\n" "\r\n")) )
+                        (set f (fcreate path))
+                        (<> f undef)
+                        (fprint f s)
+                        (close f) )
+                (seq    (close f)
+                        (opt (remove path))
+                        (gtk-message-error <info "win">
+                                (+ "fallita la generazione del file\n"
+                                   path ))
+                        (fail) )))
+
+(defnet dump-file1 (info display @s)
+        (set <info "display"> display)
+        (set <info "display-text"> "")
+        (set <info "indent-pattern"> (cfg-get-or-default "indent-pattern" <info "default">))
+        (if (= display "html")
+        then    (assoc-inc info "display-text" (+
+                        "<html>" nl
+                        "<head>" nl
+                        "<title>" <info "short-path"> "</title>" nl
+                        "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\" />" nl
+                        "<meta name=\"author\" content=\"AVInaptic\" />" nl
+                        "<meta name=\"keywords\" content=\"AVInaptic\" />" nl
+                        "<meta name=\"description\" content=\"AVInaptic report\" />" nl
+                        "</head>" nl
+                        "<body bgcolor=\"#FFEBCD\" text=\"#000000\">" nl
+                        "<pre>" nl )))
+        (alt    (dump0 info)
+                (seq    (assoc-clr info "display")
+                        (assoc-clr info "display-text")
+                        (assoc-clr info "indent-pattern")
+                        (fail) ))
+        (if (= display "html")
+        then    (assoc-inc info "display-text" (+
+                        "</pre>" nl
+                        "</body>" nl
+                        "</html>" nl )))
+        (set @s <info "display-text">)
+        (assoc-clr info "display")
+        (assoc-clr info "display-text")
+        (assoc-clr info "indent-pattern") )
+
+(defnet dump0 (info)
+        (<> <info "path"> undef)
+        (set <info "decimals"> (cfg-get-or-default-num "decimals" <info "default">))
+        (dump-generic-file info)
+        (dump-magic info)
+        (dump-id3tag info)
+        (dump-exif info)
+        (dump-generic info)
+        (dump-relevant info)
+        (dump-log-x264 info)
+        (dump-video info)
+        (dump-audio info)
+        (dump-bitstream-vid info)
+        (dump-profile-compliancy info)
+        (dump-mkv-attachments info)
+        (dump-mkv-chapters info)
+        (dump-sign info)
+        (assoc-clr info "decimals") )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun indent (info) (indentn info 1))
+(defun indentn (info n) (indentn0 info n <info "indent-pattern">))
+(defun indentn0 (info n indent-pattern)
+        (tile (* (length indent-pattern) n) indent-pattern) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-section (info title)
+        (case <info "display"> of
+                "text"  (if (not (cli)) then (dump-section-text info title))
+                "file"  (dump-section-file info title)
+                "bbcode"(dump-section-bbcode info title)
+                "html"  (dump-section-html info title) ))
+
+(defnet dump-section-text (info title)
+        (gtk-text-buffer-append-color <info "text">
+                <info "color-section"> nl title nl nl ))
+
+(defnet dump-section-file (info title)
+        (assoc-inc info "display-text" (+ ""
+                nl "[ " title " ]" nl nl )))
+
+(defnet dump-section-bbcode (info title)
+        (deflocal underline bold)
+
+        (set underline <info "bbcode-underline-section">)
+        (set bold <info "bbcode-bold-section">)
+        (assoc-inc info "display-text" (+ ""
+               nl
+               "[color=" <info "bbcode-color-section"> "]"
+               (if underline "[u]" "")(if bold "[b]" "")
+               "[ " title " ]"
+               (if bold "[/b]" "")(if underline "[/u]" "")
+               "[/color]" nl )))
+
+(defnet dump-section-html (info title)
+        (assoc-inc info "display-text" (+ ""
+                nl
+                "<font color=\"#ff0000\">"
+
+                title
+                "</font>"
+                nl nl )))
+
+(defnet dump-field (info field value)
+        (deflocal v i)
+
+        (if (not (stringp value))
+        then    (set value (sprint value)) )
+        (rtrim value)
+        (repeat (alt    (seq    (search "\r\n" value i)
+                                (set v (rtrim (sub 0 i value)))
+                                (set value (ltrim (sub (+ i 2) (maxint) value))) )
+                        (seq    (set v value)
+                                (set value "") ))
+                (case <info "display"> of
+                        "text"  (if (not (cli)) then (dump-field-text info field v))
+                        "file"  (dump-field-file info field v)
+                        "bbcode"(dump-field-bbcode info field v)
+                        "html"  (dump-field-html info field v) )
+                until (= value "")
+                (set field "") ))
+
+(defnet dump-field-text (info field value)
+        (deflocal text field-len divider-len value-len value-color v i)
+
+        (set text <info "text">)
+        (set field-len <info "length-field">)
+        (set divider-len <info "length-divider">)
+        (set value-len <info "length-value">)
+        (set value-color <info "color-value">)
+        (if (= (utf8-length field) undef)
+        then    (set field $"invalid utf8 string") )
+        (set i <info "tile-pattern">)
+        (if (= i "")
+        then    (set i ' ') )
+        (set field (str-ellipsize-start field field-len))
+        (set field (if <info "tile-left">
+                (+ (utf8-tile (- field-len (utf8-length field)) i) field)
+                (+ field (utf8-tile (- field-len (utf8-length field)) i)) ))
+        (gtk-text-buffer-append-color text <info "color-field">
+                field (tile divider-len) )
+        (if (= (utf8-length value) undef)
+        then    (set value $"invalid utf8 string") )
+        (repeat (if (<= (utf8-length value) value-len)
+                then    (gtk-text-buffer-append-color text value-color value nl)
+                        (set value "")
+                else    (set i value-len)
+                        (repeat (set v (sub 0 i value))
+                                until (<> (utf8-length v) undef)
+                                (set i (+ i 1)) )
+                        (alt    (seq    (search " " v i (maxint))
+                                        (set v (sub (+ i 1) (maxint) v))
+                                        (not (search "," v))
+                                        (not (search "." v)) )
+                                (seq    (search "," v i (maxint))
+                                        (set v (sub (+ i 1) (maxint) v))
+                                        (not (search "." v)) )
+                                (search "." v i (maxint))
+                                (set i (- i 1)) )
+                        (gtk-text-buffer-append-color text value-color
+                                (rtrim (sub 0 (+ i 1) value)) nl
+                                (tile (+ field-len divider-len)) )
+                        (set value (ltrim (sub (+ i 1) (maxint) value))) )
+                until (= value "") ))
+
+(defnet dump-field-file (info field value)
+        (assoc-inc info "display-text" (+
+                (if (= field "") "" (+ field ": "))
+                value nl )))
+
+(defnet dump-field-bbcode (info field value)
+        (deflocal underline-f bold-f underline-v bold-v)
+
+        (set underline-f <info "bbcode-underline-field">)
+        (set bold-f <info "bbcode-bold-field">)
+        (set underline-v <info "bbcode-underline-value">)
+        (set bold-v <info "bbcode-bold-value">)
+        (assoc-inc info "display-text" (+
+               (if (= field "") "" (+
+               "[color=" <info "bbcode-color-field"> "]"
+               (if underline-f "[u]" "")(if bold-f "[b]" "")
+               field
+               (if bold-f "[/b]" "")(if underline-f "[/u]" "")
+               "[/color]: " ))
+               (if (= value "") "" (+
+               "[color=" <info "bbcode-color-value"> "]"
+               (if underline-v "[u]" "")(if bold-v "[b]" "")
+               value
+               (if bold-v "[/b]" "")(if underline-v "[/u]" "")
+               "[/color]" )) nl )))
+
+(defnet dump-field-html (info field value)
+        (assoc-inc info "display-text" (+
+                (if (= field "") "" (+
+                "<font color=\"#0000ff\">"
+                field ": "
+                "</font>" ))
+                (if (= value "") "" (+
+                "<font color=\"#000000\">"
+                value
+                "</font>" ))
+                nl )))
+
+(defnet dump-sign (info)
+        (case <info "display"> of
+                "text"  (if (not (cli)) then (dump-sign-text info))
+                "file"  (dump-sign-file info)
+                "bbcode"(dump-sign-bbcode info)
+                "html"  (dump-sign-html info) ))
+
+(defnet dump-sign-text (info)
+        (deflocal c)
+
+        (set c (cfg-get-or-default "color-background" <info "default">))
+        (set c (pix-color (- 0xff (pix-color-red c))
+                          (- 0xff (pix-color-green c))
+                          (- 0xff (pix-color-blue c)) ))
+        (gtk-text-buffer-append-color <info "text"> c
+                nl $"This report was created by" " AVInaptic (" (version)
+                   $") on " (format-date <info "time">) ))
+
+(defnet dump-sign-file (info)
+        (assoc-inc info "display-text" (+ ""
+                nl $"This report was created by" " AVInaptic (" (version)
+                   $") on " (format-date <info "time">) nl )))
+
+(defnet dump-sign-bbcode (info)
+        (assoc-inc info "display-text" (+ ""
+                nl $"This report was created by" " [b][url=" (url-home-page) "]AVInaptic[/url][/b] (" (version)
+                   $") on " (format-date <info "time">) nl )))
+
+(defnet dump-sign-html (info)
+        (assoc-inc info "display-text" (+ ""
+                nl $"This report was created by" " <b><a href=\"" (url-home-page) "\">AVInaptic</a></b> (" (version)
+                   $") on " (format-date <info "time">) nl )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-nl (info)
+        (deflocal i)
+
+        (set i <info "tile-pattern">)
+        (set <info "tile-pattern"> "")
+        (dump-field info "" "")
+        (set <info "tile-pattern"> i) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-duration (info field s)
+        (if (rationalp s)
+        then    (dump-field info field
+                        (+ (date-s2hhmmss s) " (" (approx s <info "decimals">) " s)") )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-bitrate (info field b) (dump-bitrate-basic info field b undef))
+(defnet dump-bitrate-basic (info field b post)
+        (if (rationalp b)
+        then    (dump-field info field
+                        (+ "" (approx b <info "decimals">) " kbps"
+                           (if (and (stringp post) (<> post ""))
+                                (+ " " post) "" )))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-boolean (info field v)
+        (if (booleanp v)
+        then    (dump-field info field (if v $"Yes" "No")) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-bytes (info field v)
+        (if (and (integerp v) (>= v 0))
+        then    (dump-field info field
+                        (+ (format-int v) " bytes"
+                           (if (< v 1048576) ""
+                                (+ " (" (approx (/ v 1048576) <info "decimals">) " MiB)" ))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-frequency (info field v)
+        (if (and (integerp v) (>= v 0))
+        then    (dump-field info field (sprint v " Hz")) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-date (info field d)
+        (if (datep d)
+        then    (dump-field info field (date-arpa (date-local d))) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-framerate (info field fps)
+        (if (and (rationalp fps) (> fps 0))
+        then    (dump-field info field (sprint (approx fps <info "decimals">) " fps")) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-resolution (info field w h)
+        (if (and (integerp w) (integerp h) (> w 0) (> h 0))
+        then    (dump-field info field (sprint w " x " h)) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-bitstream-aud (info aud complete show-alignment)
+        (deflocal ismp3 i)
+
+        (set i (aud-codec aud))
+        (if (<> i undef)
+        then    (set ismp3 (= i "MP3"))
+                (dump-field info $"Bitstream type (bs)"
+                        (if ismp3 (+ "MPEG-" (aud-version aud) " Layer "
+                                        (tile (aud-layer aud) 'I') )
+                        (if (= i "AAC") (+ "AAC " (aud-layer aud)) i) ))
+                (set i (utf8-validate (aud-encoder aud)))
+                (if (<> i undef)
+                then    (dump-field info "Encoder (bs)" i) )
+                (if complete
+                then    (dump-field info "Frames (bs)" (format-int (aud-frames aud)))
+                        (dump-duration info $"Duration (bs)" (aud-duration aud)) )
+                (if (and show-alignment (or complete (aud-splitted aud)))
+                then    (dump-boolean info "Chunk-aligned (bs)" (not (aud-splitted aud))) )
+                (if (or complete (not (aud-vbr aud)))
+                then    (dump-bitrate-basic info "Bitrate (bs)" (aud-bitrate aud) (if (aud-vbr aud) "VBR" "CBR")) )
+                (dump-frequency info $"Sampling frequency (bs)" (aud-frequency aud))
+                (dump-field info $"Mode (bs)" (aud-mode aud))
+                (if ismp3
+                then    (dump-boolean info "Padding (bs)" (aud-padding aud)) )
+                (if (<> (aud-emphasis aud) undef)
+                then    (dump-field info "Emphasis (bs)" (aud-emphasis aud)) )
+                (if (> (aud-initial-skip aud) 0)
+                then    (dump-bytes info "Initial skip (bs)" (aud-initial-skip aud)) )
+                (if (> (aud-internal-skip aud) 0)
+                then    (dump-bytes info "Internal skip (bs)" (aud-internal-skip aud)) )
+                (if (and complete (> (aud-buf-act aud) 0))
+                then    (dump-bytes info "Final skip (bs)" (aud-buf-act aud)) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-percent-line (info val tot max @l)
+        (deflocal default-info c q v)
+
+        (set default-info <info "default">)
+        (set c (cfg-get-or-default-num "percent-line-length" default-info))
+        (set q (rint (linear val 0 (if (cfg-get-or-default "percent-line-normalize" default-info) max tot) 0 c)))
+        (set v (rint (* (/ val tot) 100000)))
+        (set @l (+ (int->str val (+ (log10 max) 1) ' ')
+                   " (" (int->str (div v 1000) 3 ' ') '.' (int->str (% v 1000) 3 '0') " %) "
+                   (tile q '#') (tile (- c q)) )))
+
+(defnet dump-get-par (vid far @par)
+        (deflocal x y)
+
+        (set @par (vid-par vid 0))
+        (if (and (<> (vid-bitstream-type vid) 3)
+                 (= @par 15) )
+        then    (set @par 255) )
+        (case @par of
+                255     (set @par (/ (vid-par-w vid 0) (vid-par-h vid 0)))
+                2       (set @par (/ 12 11)) ; 4:3 PAL pixel shape
+                3       (set @par (/ 10 11)) ; 4:3 NTSC pixel shape
+                4       (set @par (/ 16 11)) ; 16:9 PAL pixel shape
+                5       (set @par (/ 40 33)) ; 16:9 NTSC pixel shape
+                6       (set @par (/ 24 11))
+                7       (set @par (/ 20 11))
+                8       (set @par (/ 32 11))
+                9       (set @par (/ 80 33))
+                10      (set @par (/ 18 11))
+                11      (set @par (/ 15 11))
+                12      (set @par (/ 64 33))
+                13      (set @par (/ 160 99))
+                14      (set @par (/ 4 3))
+                15      (set @par (/ 3 2))
+                16      (set @par (/ 2 1))
+                default (clr @par) )
+        (if (= @par undef)
+        then    (set @par 1) ))
+
+(defun dump-max-multiple (n pow2)
+        (if (= (% n pow2) 0) pow2 (dump-max-multiple n (div pow2 2))) )
+
+(defun dump-ar (info ar)
+        (sprint (num ar) ":" (den ar) " = " (approx ar <info "decimals">)
+                (dump-ar-circa ar (/ 4 3) "4:3")
+                (dump-ar-circa ar (/ 16 9) "16:9")
+                (dump-ar-circa ar 1.85 "1.85:1")
+                (dump-ar-circa ar 2.35 "2.35:1") ))
+
+(defun dump-ar-circa (ar val valp)
+        (if (and (<> ar val)
+                 (< (/ (abs (- ar val)) val) 0.012) )
+                (+ " (~" valp ")")
+                "" ))
+
+(defun cnt-qscale-cnt (vid n tosub-a tosub-b)
+        (if (= n -1) 0
+                (+ (vid-cnt-qscale-cnt vid n tosub-a tosub-b)
+                   (cnt-qscale-cnt vid (- n 1) tosub-a tosub-b) )))
+
+(defun cnt-qscale-avg (vid n tosub-a tosub-b)
+        (if (= n -1) 0
+                (+ (vid-cnt-qscale-avg vid n tosub-a tosub-b)
+                   (cnt-qscale-avg vid (- n 1) tosub-a tosub-b) )))
+
+(defun cnt-qscale-var (vid n tosub-a tosub-b)
+        (if (= n -1) 0
+                (+ (vid-cnt-qscale-var vid n tosub-a tosub-b)
+                   (cnt-qscale-var vid (- n 1) tosub-a tosub-b) )))
+
+(defun cnt-qscale-max (vid n tosub-a tosub-b)
+        (if (= n -1) -1
+                (max (vid-cnt-qscale-max vid n tosub-a tosub-b)
+                     (cnt-qscale-max vid (- n 1) tosub-a tosub-b) )))
+
+(defun cnt-qscale (vid qscale n tosub-a tosub-b)
+        (if (= n -1) 0
+                (+ (vid-cnt-qscale vid qscale n tosub-a tosub-b)
+                   (cnt-qscale vid qscale (- n 1) tosub-a tosub-b) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-generic-file (info)
+        (dump-section info $"About file")
+        (dump-field info $"Name" <info "short-path">)
+        (dump-date info $"Date" <info "filetime">)
+        (dump-bytes info $"Size" <info "filesize">)
+        (if (and (not <info "complete">)
+                 (in <info "filetype"> [ "avi" "mkv" "mp4" "flv" ]) )
+        then    (dump-field info $"Note" $"Analysis not complete") )
+        (if <info "aborted">
+        then    (dump-field info $"Note" $"Analysis aborted") ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-magic (info)
+        (deflocal magic i)
+
+        (set magic <info "magic">)
+        (if (and (cfg-get-or-default "enabled-magic"
+                                     <info "default"> )
+                 (<> magic undef) )
+        then    (dump-section info "Magic")
+                (opt*   (search "\\012- " magic i)
+                        (dump-field info $"File type" (sub 0 i magic))
+                        (set magic (sub (+ i 6) (maxint) magic)) )
+                (dump-field info $"File type" magic) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-id3tag (info)
+        (deflocal tag-list tag val)
+
+        (set tag-list <info "id3tag">)
+        (if (and (cfg-get-or-default "enabled-id3tag"
+                                     <info "default"> )
+                 (<> tag-list undef)
+                 (<> tag-list nil) )
+        then    (dump-section info "ID3 Tags")
+                (for tag in tag-list do
+                        (set val <tag 2>)
+                        (if (= (cdr val) nil)
+                        then    (set val (car val)) )
+                        (dump-field info (utf8-validate <tag 1>) val) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-exif (info)
+        (deflocal exif)
+
+        (set exif <info "exif">)
+        (if (and (cfg-get-or-default "enabled-exif"
+                                     <info "default"> )
+                 (<> exif undef) )
+        then    (dump-section info "EXIF")
+                ; FIXME
+                (skip) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-generic (info)
+        (deflocal filetype fileinfo)
+
+        (set filetype <info "filetype">)
+        (set fileinfo <info "fileinfo">)
+        (if (<> filetype "aud")
+        then    (dump-section info (if (<> filetype undef) $"Generic infos" "Hex dump"))
+                (case filetype of
+                        "avi"   (dump-generic-avi info fileinfo)
+                        "asf"   (dump-generic-asf info fileinfo)
+                        "mkv"   (dump-generic-mkv info fileinfo)
+                        "mp4"   (dump-generic-mp4 info fileinfo)
+                        "flv"   (dump-generic-flv info fileinfo)
+                        "pix"   (dump-generic-pix info fileinfo)
+                        default (dump-generic-hex-dump info) )))
+
+(defnet dump-generic-avi (info fileinfo)
+        (deflocal loc-info avi streams i j)
+
+        (set loc-info (car fileinfo))
+        (set avi (cdr fileinfo))
+        (set streams <loc-info "streams">)
+        (dump-duration info $"Duration" (/ (avi-video-frames avi) <loc-info "fps1">))
+        (dump-field info $"Container" (+ "AVI"
+                (if <loc-info "odml"> " OpenDML" "")
+                (if <loc-info "odml-index"> " indexes" "")
+                (if <loc-info "odml-multi"> " multi-chunks" "")
+                (if <loc-info "rec-lists"> " rec-lists" "")
+                (if <loc-info "dmf-menu"> " DivX Media Format (with menu)" "")
+                (if (<> <loc-info "google"> undef) " Google" "") ))
+        (dump-boolean info $"AVI has index" (avi-has-index avi))
+        (dump-field info $"Total tracks" (length streams))
+        (for i in streams do
+                (set j <i 1 "name">)
+                (dump-field info (+ $"Track nr. " (for-pos))
+                                 (+ (avistreamtype2str <i 0>)
+                                    (if (= j undef) "" (+ " {" j "}")) )))
+        (set i <loc-info "INFO">)
+        (for i in (if (= i undef) nil i) do
+                (dump-field info (car i) (cdr i)) )
+        (set i <loc-info "JUNK">)
+        (for i in (if (= i undef) nil i) do
+                (dump-field info "Junk" i) )
+        (set i <loc-info "corrupt">)
+        (if (<> i undef)
+        then    (dump-field info $"Incomplete AVI sections" (sprintl i ", ")) ))
+
+(defnet dump-generic-asf (info fileinfo)
+        (skip) )
+
+(defnet dump-generic-mkv (info fileinfo)
+        (deflocal i j k)
+
+        (dump-duration info $"Duration" <fileinfo "Duration">)
+        (dump-field info $"Container"
+                (+ <fileinfo "DocType">
+                   (if <fileinfo "multisegment"> " (multisegment)" "") ))
+        (dump-date info "Production date" <fileinfo "DateUTC">)
+        (set i <fileinfo "tracks-array">)
+        (dump-field info $"Total tracks" (length i))
+        (for i in i do
+                (set j <(cdr i) "CodecID">)
+                (set k <(cdr i) "Name">)
+                (dump-field info (+ $"Track nr. " (car i))
+                        (+ <(cdr i) "TrackType">
+                           (if (= j undef) "" (+ " (" j ")"))
+                           (if (= k undef) "" (+ " [" k "]"))
+                           " {" <(cdr i) "Language"> "}" )))
+        (set i <fileinfo "MuxingApp">)
+        (if (stringp i)
+        then    (dump-field info "Muxing library" i) )
+        (set i <fileinfo "WritingApp">)
+        (if (stringp i)
+        then    (dump-field info "Writing application" i) )
+        (if (cfg-get-or-default "enabled-debug" <info "default">)
+        then    (for i in <fileinfo "unknown-ids"> do
+                        (dump-field info "[debug] unknown id"
+                                (+ (int->hex <i 0>)
+                                " (parent: " (if (= <i 1> undef) "none" (int->hex <i 1>))
+                                ", level: " <i 2> ")" )))))
+
+(defnet dump-generic-mp4 (info fileinfo)
+        (deflocal i j k l m)
+
+        (dump-duration info $"Duration" <fileinfo "duration">)
+        (set i <fileinfo "major-brand">)
+        (if (<> i undef)
+        then    (dump-field info $"Container" "MP4/MOV")
+                (dump-field info "Major brand" (+ i " version " <fileinfo "minor-version">))
+                (set i <fileinfo "compatible-brands">)
+                (if (> (length i) 0)
+                then    (dump-field info "Compatible brands" (sprintl i ", ")) )
+        else    (dump-field info $"Container" "Apple QuickTime movie (fast start)") )
+        (dump-date info $"Creation time" <fileinfo "creation-time">)
+        (dump-date info $"Modification time" <fileinfo "modification-time">)
+        (set i <fileinfo "tracks">)
+        (dump-field info $"Total tracks" (length i))
+        (for i in i do
+                (set j <i "track-id">)
+                (set k <i "type">)
+                (set l <i "codingname">)
+                (set m <i "name">)
+                (case k of
+                        undef   (set k $"unknown type")
+                        "vide"  (set k "video")
+                        "soun"  (set k "audio") )
+                (dump-field info (+ $"Track nr. " (if (= j undef) (+ (for-pos) 1) j))
+                        (+ k
+                           (if (= l undef) "" (+ " (" l ")"))
+                           (if (= m undef) "" (+ " [" m "]")) )))
+        (if (cfg-get-or-default "enabled-debug" <info "default">)
+        then    (for i in <fileinfo "unknown-ids"> do
+                        (dump-field info "[debug] unknown id"
+                                (+ (int->hex <i 0>) " (" (parse-mp4-typestr <i 0>) ")"
+                                        (if (= <i 1> undef) "" (+ ", parent=" (int->hex <i 1>) " (" (parse-mp4-typestr <i 1>) ")"))
+                                        ", level=" <i 2> )))))
+
+(defnet dump-generic-flv (info fileinfo)
+        (deflocal v a i)
+
+        (dump-duration info $"Duration" <fileinfo "duration">)
+        (dump-field info $"Container" (+ "FLV version " <fileinfo "version">))
+        (set v <fileinfo "video">)
+        (set a <fileinfo "audio">)
+        (dump-field info $"Total tracks" (+ v a))
+        (set i 0)
+        (if (= v 1)
+        then    (dump-field info (+ $"Track nr. " i) (+ "video (" <fileinfo "vcodec"> ")"))
+                (inc i) )
+        (if (= a 1)
+        then    (dump-field info (+ $"Track nr. " i) (+ "audio (" <fileinfo "acodec"> ")")) )
+        (dump-bytes info "Byte length" <fileinfo "bytelength">)
+        (dump-bitrate info "Total datarate" <fileinfo "totaldatarate">)
+        (for i in <fileinfo "script"> do
+                (set v (cdr i))
+                (set i (car i))
+                (if (booleanp v)
+                then    (dump-boolean info i v)
+                else    (dump-field info i (if (rationalp v) (approx v <info "decimals">) v)) )))
+
+(defnet dump-generic-pix (info fileinfo)
+        (dump-field info $"Image format" <fileinfo 0>)
+        (dump-resolution info $"Resolution" <fileinfo 1> <fileinfo 2>)
+        (dump-field info $"Luminance" (approx <fileinfo 3> <info "decimals">))
+        (dump-field info $"Contrast" (approx <fileinfo 4> <info "decimals">)) )
+
+(defnet dump-generic-hex-dump (info)
+        (deflocal c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 ca cb cc cd ce cf
+                  f size cnt )
+
+        (set f (fopenro <info "path">))
+        (if (<> f undef)
+        then    (set cnt 0)
+                (set size (min (length f) (cfg-get-or-default-num "hex-dump-max" <info "default">)))
+                (repeat (set c0 (length (freadchar f)))
+                        (set c1 (length (freadchar f)))
+                        (set c2 (length (freadchar f)))
+                        (set c3 (length (freadchar f)))
+                        (set c4 (length (freadchar f)))
+                        (set c5 (length (freadchar f)))
+                        (set c6 (length (freadchar f)))
+                        (set c7 (length (freadchar f)))
+                        (set c8 (length (freadchar f)))
+                        (set c9 (length (freadchar f)))
+                        (set ca (length (freadchar f)))
+                        (set cb (length (freadchar f)))
+                        (set cc (length (freadchar f)))
+                        (set cd (length (freadchar f)))
+                        (set ce (length (freadchar f)))
+                        (set cf (length (freadchar f)))
+                        (dump-field info (sprint
+                                (hexdigit (div cnt 0x10000000))
+                                (hexdigit (div cnt 0x1000000))
+                                (hexdigit (div cnt 0x100000))
+                                (hexdigit (div cnt 0x10000))
+                                (hexdigit (div cnt 0x1000))
+                                (hexdigit (div cnt 0x100))
+                                (hexdigit (div cnt 0x10))
+                                (hexdigit cnt) ) (sprint
+                                (hexdigit (div c0 0x10)) (hexdigit c0) ' '
+                                (hexdigit (div c1 0x10)) (hexdigit c1) ' '
+                                (hexdigit (div c2 0x10)) (hexdigit c2) ' '
+                                (hexdigit (div c3 0x10)) (hexdigit c3) ' '
+                                (hexdigit (div c4 0x10)) (hexdigit c4) ' '
+                                (hexdigit (div c5 0x10)) (hexdigit c5) ' '
+                                (hexdigit (div c6 0x10)) (hexdigit c6) ' '
+                                (hexdigit (div c7 0x10)) (hexdigit c7) ' '
+                                ' '
+                                (hexdigit (div c8 0x10)) (hexdigit c8) ' '
+                                (hexdigit (div c9 0x10)) (hexdigit c9) ' '
+                                (hexdigit (div ca 0x10)) (hexdigit ca) ' '
+                                (hexdigit (div cb 0x10)) (hexdigit cb) ' '
+                                (hexdigit (div cc 0x10)) (hexdigit cc) ' '
+                                (hexdigit (div cd 0x10)) (hexdigit cd) ' '
+                                (hexdigit (div ce 0x10)) (hexdigit ce) ' '
+                                (hexdigit (div cf 0x10)) (hexdigit cf) ' '
+                                ' '
+                                '|'
+                                (dump-printable c0)
+                                (dump-printable c1)
+                                (dump-printable c2)
+                                (dump-printable c3)
+                                (dump-printable c4)
+                                (dump-printable c5)
+                                (dump-printable c6)
+                                (dump-printable c7)
+                                (dump-printable c8)
+                                (dump-printable c9)
+                                (dump-printable ca)
+                                (dump-printable cb)
+                                (dump-printable cc)
+                                (dump-printable cd)
+                                (dump-printable ce)
+                                (dump-printable cf)
+                                '|' ))
+                        (set cnt (+ cnt 16))
+                        until (>= cnt size) )
+                (close f) ))
+
+(defun dump-printable (n)
+        (if (= n undef) ' ' (if (or (< n 0x20) (>= n 0x7f)) '.' (int->char n))) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-relevant (info)
+        (deflocal w h vid comment bs-type
+                  type types tosub-a tosub-b n avg dev wm-dev i j )
+
+        (opt    (set n <info "correction">)
+                (for i in 1 .. <info "video"> do
+                        (opt    (info->vid-fps-res-basic info (for-pos) vid j w h)
+                                (set tosub-a <n (for-pos) 1>)
+                                (set tosub-b <n (for-pos) 2>) )
+                        until (vidp vid) )
+                (integerp w)
+                (integerp h)
+                (set comment (cfg-get-or-default "enabled-comment"
+                                        <info "default"> ))
+
+                (dump-section info $"Relevant data")
+
+                (set i (* w h))
+                (dump-field info $"Resolution"
+                        (if comment (+
+                                (if (>= i (* 720 384)) $"VERY HIGH"
+                                (if (>= i (* 624 336)) $"HIGH"
+                                (if (>= i (* 544 288)) $"MEDIUM"
+                                (if (>= i (* 480 256)) $"LOW"
+                                                       $"VERY LOW" ))))
+                                " (" w " x " h ")" ) (sprint w " x " h) ))
+                (set i (dump-max-multiple w 32))
+                (dump-field info $"Width" (+
+                        $"multiple of " i (if comment (+ " ("
+                                (if (>= i 16) $"GOOD"
+                                (if (>= i 2)  $"16 would be better"
+                                              $"BAD" ))
+                                ")" ) "" )))
+                (set i (dump-max-multiple h 32))
+                (dump-field info $"Height" (+
+                        $"multiple of " i (if comment (+ " ("
+                                (if (>= i 16) $"GOOD"
+                                (if (>= i 2)  $"16 would be better"
+                                              $"BAD" ))
+                                ")" ) "" )))
+                (vidp vid)
+                (= <info "complete"> true)
+                (set bs-type (vid-bitstream-type vid))
+                (>= bs-type 1)
+                (<= bs-type 3)
+                (set types (if (= bs-type 3) 4 3))
+                (set n (cnt-qscale-cnt vid types tosub-a tosub-b))
+                (> n 0)
+                (set avg (/ (cnt-qscale-avg vid types tosub-a tosub-b) n))
+                (set dev (sqrt (- (/ (cnt-qscale-var vid types tosub-a tosub-b) n)
+                                  (* avg avg) )))
+                (set wm-dev 0)
+                (for type in 0 .. types do
+                        (set j (vid-cnt-qscale-cnt vid type tosub-a tosub-b))
+                        (if (> j 0)
+                        then    (set i (/ (vid-cnt-qscale-avg vid type tosub-a tosub-b) j))
+                                (set wm-dev (+ wm-dev (* j (sqrt (- (/ (vid-cnt-qscale-var vid type tosub-a tosub-b) j) (* i i)))))) ))
+                (set wm-dev (/ wm-dev n))
+                (if comment
+                then    (dump-field info $"Average DRF quality" (+
+                                (if (= bs-type 3)
+                                        (if (< avg 18)    $"VERY HIGH"
+                                        (if (< avg 22)    $"HIGH"
+                                        (if (< avg 26)    $"MEDIUM"
+                                        (if (< avg 32)    $"LOW"
+                                                          $"VERY LOW" ))))
+                                        (if (< avg 3.2)   $"HIGH"
+                                        (if (<= avg 5)    $"MEDIUM"
+                                                          $"LOW" )))
+                                " (" (approx avg <info "decimals">) ")" ))
+                else    (dump-field info $"Average DRF" (approx avg <info "decimals">)) )
+                (if comment
+                then    (dump-field info $"Standard deviation quality" (+
+                                (if (= bs-type 3)
+                                        (if (< dev 3)     $"HIGH"
+                                        (if (< dev 8)     $"MEDIUM"
+                                                          $"LOW" ))
+                                        (if (< dev 0.8)   $"HIGH"
+                                        (if (< dev 1.6)   $"MEDIUM"
+                                                          $"LOW" )))
+                                " (" (approx dev <info "decimals">) ")" ))
+                else    (dump-field info $"Standard deviation" (approx dev <info "decimals">)) )
+                (if comment
+                then    (dump-field info $"Std. dev. weighted mean" (+
+                                (if (= bs-type 3)
+                                        (if (< wm-dev 3)  $"HIGH"
+                                        (if (< wm-dev 8)  $"MEDIUM"
+                                                          $"LOW" ))
+                                        (if (< wm-dev 0.8)$"HIGH"
+                                        (if (< wm-dev 1.6)$"MEDIUM"
+                                                          $"LOW" )))
+                                " (" (approx wm-dev <info "decimals">) ")" ))
+                else    (dump-field info $"Std. dev. weighted mean" (approx wm-dev <info "decimals">)) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-log-x264 (info)
+        (deflocal a i tot max prc)
+
+        (set a <info "log-x264">)
+        (if (and (assocp a) (cfg-get-or-default "enabled-x264-log"
+                                <info "default"> ))
+        then    (dump-section info "x264 log")
+
+                (set tot 0)
+                (for i in a do
+                        (inc tot <(cdr i) 0>)
+                        (set max (max max <(cdr i) 0>)) )
+                (for i in a do
+                        (dump-percent-line info <(cdr i) 0> tot max prc)
+                        (dump-field info (+ "frame " (car i)) prc) )
+
+                (set max 0)
+                (for i in a do
+                        (inc max (* <(cdr i) 0> <(cdr i) 1>))
+                        (dump-field info (+ "frame " (car i) " avg QP") (approx <(cdr i) 1> <info "decimals">)) )
+                (dump-field info "Avg QP" (approx (/ max tot) <info "decimals">)) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-video (info)
+        (deflocal video fileinfo i)
+
+        (set video <info "video">)
+        (if (> video 0)
+        then    (set fileinfo <info "fileinfo">)
+                (for i in 1 .. video do
+                        (dump-section info
+                                (+ $"Video track"
+                                   (if (> video 1) (+ " nr. " i) "") ))
+                        (case <info "filetype"> of
+                                "avi"   (dump-video-avi info fileinfo i)
+                                "asf"   (dump-video-asf info fileinfo i)
+                                "mkv"   (dump-video-mkv info fileinfo i)
+                                "mp4"   (dump-video-mp4 info fileinfo i)
+                                "flv"   (dump-video-flv info fileinfo) ))))
+
+(defnet dump-video-avi (info fileinfo track)
+        (deflocal loc-info trk-info avi vid w1 w2 h1 h2 fps1 fps2 br i)
+
+        (set loc-info (car fileinfo))
+        (set avi (cdr fileinfo))
+        (for i in <loc-info "streams"> do
+                (if (= <i 0> "vids")
+                then    (set track (- track 1)) )
+                until (= track 0) )
+        (set trk-info <i 1>)
+        (set vid <i 2>)
+
+        (set w1 <trk-info "width">)
+        (set w2 <loc-info "width">)
+        (set h1 <trk-info "height">)
+        (set h2 <loc-info "height">)
+
+        (set fps1 (approx <loc-info "fps1"> <info "decimals">))
+        (set fps2 (approx <loc-info "fps2"> <info "decimals">))
+
+        (dump-field info "FourCC" (+ <trk-info "handler"> "/" <trk-info "fourcc">))
+        (dump-field info $"Resolution" (sprint w1 " x " h1
+                (if (and (= w1 w2) (= h1 h2)) "" (sprint " (" w2 " x " h2 ")")) ))
+        (if (or (<> (width vid) w1) (<> (height vid) h1))
+        then    (dump-resolution info $"Resolution (bs)" (width vid) (height vid)) )
+        (set w2 (/ w1 h1))
+        (dump-get-par vid w2 h2)
+        (dump-field info "Frame aspect ratio" (dump-ar info w2))
+        (dump-field info "Pixel aspect ratio" (dump-ar info h2))
+        (dump-field info "Display aspect ratio" (dump-ar info (* w2 h2)))
+        (set i (/ <trk-info "vprp-aspect-x">
+                  <trk-info "vprp-aspect-y"> ))
+        (if (<> i undef)
+        then    (dump-field info "Vprp aspect ratio" (dump-ar info i)) )
+        (dump-field info "Framerate" (sprint fps1 " fps" (if (<= (abs (- fps1 fps2)) 0.001) "" (sprint " (" fps2 ")"))))
+        (dump-field info $"Total frames" (format-int (avi-video-frames avi)))
+        (set i <loc-info "riff-avi-frames">)
+        (if (and (> i 0) (<> i (avi-video-frames avi)))
+        then    (dump-field info "Frames RIFF AVI" (format-int i)) )
+        (if (and (avi-has-index avi) (> (avi-video-streamsize avi) 0))
+        then    (set br (/ (* 0.008 (avi-video-streamsize avi) fps1) (avi-video-frames avi)))
+                (dump-bytes info $"Stream size" (avi-video-streamsize avi))
+                (dump-bitrate info "Bitrate" br)
+                (dump-field info "Qf" (approx (/ br 0.001 w1 h1 fps1) <info "decimals">))
+                (dump-field info "Key frames" <loc-info "avi-keyframes">)
+                (dump-field info "Null frames" <loc-info "avi-nulframes">)
+                (dump-field info "Min key int" <loc-info "avi-video-min-keyint">)
+                (dump-field info "Max key int" <loc-info "avi-video-max-keyint">)
+                (dump-field info "Avg key int" (approx (/ (avi-video-frames avi)
+                                                          <loc-info "avi-video-keyframes"> )
+                                                       <info "decimals"> )))
+        (dump-field info $"Delay" (sprint (rint (* 1000 <trk-info "delay">)) " ms")) )
+
+(defnet dump-video-asf (info fileinfo track)
+        ; FIXME
+        (skip) )
+
+(defnet dump-video-mkv (info fileinfo track)
+        (deflocal i j w h dw dh s fps)
+
+        (for i in <fileinfo "tracks-array"> do
+                (if (= <(cdr i) "TrackType"> "video")
+                then    (inc track -1) )
+                until (= track 0) )
+        (set track (cdr i))
+        (dump-field info "Codec ID" <track "CodecID">)
+        (set w <track "PixelWidth">)
+        (set h <track "PixelHeight">)
+        (if (and (<> w undef) (<> h undef))
+        then    (dump-resolution info $"Resolution" w h)
+                (set i <track "PixelCropBottom">)
+                (if (> i 0)
+                then    (dump-field info "Crop bottom" i) )
+                (set i <track "PixelCropTop">)
+                (if (> i 0)
+                then    (dump-field info "Crop top" i) )
+                (set i <track "PixelCropLeft">)
+                (if (> i 0)
+                then    (dump-field info "Crop left" i) )
+                (set i <track "PixelCropRight">)
+                (if (> i 0)
+                then    (dump-field info "Crop right" i) )
+                (set dw <track "DisplayWidth">)
+                (set dh <track "DisplayHeight">)
+                (if (or (<> dw w) (<> dh h))
+                then    (dump-field info "Display resolution" (sprint dw " x " dh
+                                " (" <
+                                          [ "pixels" "centimeters" "inches" "display aspect ratio" "unknown" ]  <track "DisplayUnit">> ")" )))
+                (dump-field info "Frame aspect ratio" (dump-ar info (/ w h)))
+                (dump-field info "Pixel aspect ratio" (dump-ar info (/ (* dw h) dh w)))
+                (dump-field info "Display aspect ratio" (dump-ar info (/ dw dh))) )
+        (set fps <track "Framerate">)
+        (dump-framerate info "Framerate" fps)
+        (if (cfg-get-or-default "enabled-debug" <info "default">)
+        then    (dump-bytes info "[debug] codec private" (cdr <track "CodecPrivate">)) )
+        (dump-mkv-content-encodings info track)
+        (if <info "complete">
+        then    (set i <track "low">)
+                (if (arrayp i)
+                then    (set s <i 4>)
+                        (dump-bytes info $"Stream size" s)
+                        (if (<> fps undef)
+                        then    (set j (/ <i 3> fps))
+                                (dump-duration info $"Duration (bs)" j)
+                                (dump-bitrate info "Bitrate (bs)" (/ s j 125))
+                                (set j (approx (/ (/ s j 125) 0.001 w h fps) <info "decimals">))
+                                (if (<> j undef)
+                                then    (dump-field info "Qf" j) ))
+                        (set i <i 0>)
+                        (if (vidp i)
+                        then    (set dw (width i))
+                                (set dh (height i))
+                                (if (or (<> dw w) (<> dh h))
+                                then    (dump-resolution info $"Resolution (bs)" dw dh) )))))
+
+(defnet dump-video-mp4 (info fileinfo track)
+        (deflocal trckinfo w h dw dh fps br vid i j)
+
+        (for trckinfo in <fileinfo "tracks"> do
+                (if (= <trckinfo "type"> "vide")
+                then    (inc track -1) )
+                until (= track 0) )
+        (dump-field info "Codec" <trckinfo "codingname">)
+        (set w <trckinfo "width">)
+        (set h <trckinfo "height">)
+        (if (and (<> w undef) (<> h undef))
+        then    (dump-resolution info $"Resolution" w h)
+                (set dw <trckinfo "DisplayWidth">)
+                (set dh <trckinfo "DisplayHeight">)
+                (if (or (= dw undef) (= dw 0))
+                then    (set dw w) )
+                (if (or (= dh undef) (= dh 0))
+                then    (set dh h) )
+                (dump-field info "Frame aspect ratio" (dump-ar info (/ w h)))
+                (dump-field info "Pixel aspect ratio" (dump-ar info (/ (* dw h) dh w)))
+                (dump-field info "Display aspect ratio" (dump-ar info (/ dw dh))) )
+        (set fps <trckinfo "framerate">)
+        (dump-framerate info "Framerate" fps)
+        (set br <trckinfo "bitrate">)
+        (dump-bitrate info "Bitrate" br)
+        (if <info "complete">
+        then    (set vid <trckinfo "low">)
+                (set i (/ (length vid) fps))
+                (dump-duration info $"Duration (bs)" i)
+                (set j (/ <trckinfo "tracksize"> i 125))
+                (if (<> j br)
+                then    (dump-bitrate info "Bitrate (bs)" j) )
+                (set j (approx (/ j 0.001 w h fps) <info "decimals">))
+                (if (<> j undef)
+                then    (dump-field info "Qf" j) )))
+
+(defnet dump-video-flv (info fileinfo)
+        (deflocal vid fps w h i j)
+
+        (set vid <fileinfo "vid">)
+        (set fps <fileinfo "framerate">)
+        (set w <fileinfo "width">)
+        (set h <fileinfo "height">)
+        (dump-field info "Codec" <fileinfo "vcodec">)
+        (if (and (<> w undef) (<> h undef))
+        then    (dump-resolution info $"Resolution" w h)
+                (set i (/ w h))
+                (dump-get-par vid i j)
+                (dump-field info "Frame aspect ratio" (dump-ar info i))
+                (dump-field info "Pixel aspect ratio" (dump-ar info j))
+                (dump-field info "Display aspect ratio" (dump-ar info (* i j))) )
+        (dump-framerate info "Framerate" fps)
+        (dump-bitrate info "Bitrate" <fileinfo "videodatarate">)
+        (if <info "complete">
+        then    (set i (/ (length vid) fps))
+                (dump-duration info $"Duration (bs)" i)
+                (dump-bitrate info "Bitrate (bs)" (/ <fileinfo "vid-size"> i 125)) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-audio (info)
+        (deflocal audio fileinfo i)
+
+        (set audio <info "audio">)
+        (if (> audio 0)
+        then    (set fileinfo <info "fileinfo">)
+                (for i in 1 .. audio do
+                        (dump-section info
+                                (+ $"Audio track"
+                                   (if (> audio 1) (+ " nr. " i) "") ))
+                        (case <info "filetype"> of
+                                "aud"   (dump-audio-aud info fileinfo)
+                                "avi"   (dump-audio-avi info fileinfo i)
+                                "asf"   (dump-audio-asf info fileinfo i)
+                                "mkv"   (dump-audio-mkv info fileinfo i)
+                                "mp4"   (dump-audio-mp4 info fileinfo i)
+                                "flv"   (dump-audio-flv info fileinfo) ))))
+
+(defnet dump-audio-aud (info fileinfo)
+        (dump-bitstream-aud info fileinfo true false) )
+
+(defnet dump-audio-avi (info fileinfo track)
+        (deflocal trk-info avi aud max-av-diff i)
+
+        (set avi (cdr fileinfo))
+        (avi-set-audio-track avi (- track 1))
+        (for i in <(car fileinfo) "streams"> do
+                (if (= <i 0> "auds")
+                then    (set track (- track 1)) )
+                until (= track 0) )
+        (set trk-info <i 1>)
+        (set aud <i 2>)
+        (set max-av-diff <i 3>)
+
+        (set i <trk-info "tag">)
+        (dump-field info "Audio tag" (+ (int->hex i) " (" (audiotag2name i) ")"))
+        (dump-field info $"Channels" <trk-info "channels">)
+        (set i (approx <trk-info "bitrate"> <info "decimals">))
+        (if (or (= (aud-codec aud) undef)
+                (<> (approx (aud-bitrate aud) <info "decimals">) i)
+                (<> (aud-vbr aud) <trk-info "vbr">) )
+        then    (dump-bitrate-basic info "Bitrate" i (if <trk-info "vbr"> "VBR" "CBR")) )
+        (set i <trk-info "frequency">)
+        (if (or (= (aud-codec aud) undef) (<> (aud-frequency aud) i))
+        then    (dump-frequency info $"Sampling frequency" i) )
+        (if (and (avi-has-index avi) (> (avi-audio-streamsize avi) 0))
+        then    (dump-field info "Chunks" (format-int (avi-audio-chunks avi)))
+                (dump-bytes info $"Stream size" (avi-audio-streamsize avi)) )
+
+        (if (<> (aud-codec aud) undef)
+        then    (dump-bitstream-aud info aud <info "complete"> true)
+                (set i <trk-info "preload">)
+                (if (<> i undef)
+                then    (dump-field info "Preload"
+                                (sprint (rint (* 1000 i)) " ms" (if (= i 0) (+
+                                        " (" <trk-info "preload-frames"> " video frames)" ) "" ))))
+                (if (<> max-av-diff undef)
+                then    (dump-field info "Max A/V diff" (sprint (rint (* 1000 max-av-diff)) " ms")) ))
+        (dump-field info $"Delay" (sprint (rint (* 1000 <trk-info "delay">)) " ms")) )
+
+(defnet dump-audio-asf (info fileinfo track)
+        ; FIXME
+        (skip) )
+
+(defnet dump-audio-mkv (info fileinfo track)
+        (deflocal i j)
+
+        (for i in <fileinfo "tracks-array"> do
+                (if (= <(cdr i) "TrackType"> "audio")
+                then    (inc track -1) )
+                until (= track 0) )
+        (set track (cdr i))
+        (dump-field info "Codec ID" <track "CodecID">)
+
+        (set i <track "SamplingFrequency">)
+        (set j <track "OutputSamplingFrequency">)
+        (dump-frequency info $"Sampling frequency" i)
+        (if (<> j i)
+        then    (dump-frequency info $"Output sampling frequency" j) )
+        (dump-field info $"Channels" <track "Channels">)
+
+        (set i <track "BitDepth">)
+        (if (<> i undef)
+        then    (dump-field info $"Sample size" (sprint i "-bit")) )
+        (if (cfg-get-or-default "enabled-debug" <info "default">)
+        then    (dump-bytes info "[debug] codec private" (cdr <track "CodecPrivate">)) )
+        (dump-mkv-content-encodings info track)
+        (set j <info "complete">)
+        (set i <track "low">)
+        (if (and j (arrayp i))
+        then    (dump-bytes info $"Stream size" <i 4>) )
+        (dump-bitstream-aud info <i 0> j true) )
+
+(defnet dump-audio-mp4 (info fileinfo track)
+        (deflocal trckinfo)
+
+        (for trckinfo in <fileinfo "tracks"> do
+                (if (= <trckinfo "type"> "soun")
+                then    (inc track -1) )
+                until (= track 0) )
+        (dump-field info "Codec" <trckinfo "codingname">)
+        (dump-bitrate info "Bitrate" <trckinfo "bitrate">)
+
+        ; FIXME
+
+        (dump-bitstream-aud info <trckinfo "low"> <info "complete"> true) )
+
+(defnet dump-audio-flv (info fileinfo)
+        (deflocal aud i)
+
+        (set aud <fileinfo "aud">)
+
+        (dump-field info "Codec" <fileinfo "acodec">)
+
+        (set i <fileinfo "achan">)
+        (if (<> i undef)
+        then    (dump-field info $"Channels" i) )
+
+        (dump-bitrate info "Bitrate" <fileinfo "audiodatarate">)
+
+        (set i <fileinfo "abits">)
+        (if (= i undef)
+        then    (set i <fileinfo "audiosamplesize">) )
+        (if (<> i undef)
+        then    (dump-field info "Sample size" (sprint i "-bit")) )
+
+        (set i <fileinfo "afreq">)
+        (if (= i undef)
+        then    (set i <fileinfo "audiosamplerate">) )
+        (if (<> i (aud-frequency aud))
+        then    (dump-frequency info $"Sampling frequency" i) )
+
+        (dump-bitstream-aud info aud <info "complete"> true) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-bitstream-vid (info)
+        (deflocal video a vid fps i j)
+
+        (set video <info "video">)
+        (set a <info "correction">)
+        (for i in 1 .. video do
+                (opt    (info->vid-fps-basic info (for-pos) vid fps)
+                        (set j (vid-bitstream-type vid))
+                        (in j [ 1 2 3 ])
+                        (dump-section info
+                                (+ $"Video bitstream"
+                                   (if (> video 1) (+ " nr. " i) "") ))
+                        (dump-bitstream-vid0 info vid j fps <a (for-pos) 1> <a (for-pos) 2>) )))
+
+(defnet dump-bitstream-vid0 (info vid bs-type fps tosub-a tosub-b)
+        (deflocal i j)
+
+        (dump-field info $"Bitstream type"
+                <[ "MPEG-4 Part 2" "MS-MPEG4" "MPEG-4 Part 10" ] (- bs-type 1)> )
+
+        (if (vid-missing-vol vid)
+        then    (dump-field info $"Note"
+                        $"it seems like the video doesn't start with a keyframe" ))
+
+        (set i (vid-error vid))
+        (if (<> i undef)
+        then    (dump-field info $"Error" i)
+                (fail) )
+
+        (dump-bitstream-vid-user-data info vid)
+
+        (if (in bs-type [ 1 2 ])
+        then    (dump-bitstream-vid-mpeg4-asp info vid)
+        else    (dump-bitstream-vid-mpeg4-avc info vid) )
+
+        (= <info "complete"> true)
+
+        (dump-field info $"Total frames" (format-int (length vid)))
+        (dump-field info "Drop/delay frames" (format-int (vid-cnt-qscale-cnt vid 5 0 0)))
+        (dump-field info $"Corrupt frames" (format-int (vid-cnt-qscale-cnt vid 6 0 0)))
+        (dump-frame-types info vid)
+        (if (= bs-type 1)
+        then    (dump-bframes info vid)
+                (dump-warp-points info vid) )
+        (dump-drf info vid fps 0 0)
+        (if (or (> tosub-a 0) (> tosub-b 0))
+        then    (dump-drf info vid fps tosub-a tosub-b) ))
+
+(defnet dump-bitstream-vid-user-data (info vid)
+        (deflocal grouped max acc i j)
+
+        (set grouped (cfg-get-or-default "user-data-grouped"
+                                <info "default"> ))
+        (set max <info "length-value">)
+        (for i in (vid-userdata vid) do
+                (set i (utf8-validate (rtrim i '' ' ' '\t' '\r' '\n')))
+                (alt    (= i "")
+                        (seq    (lmatch i "x264")
+                                (set acc "")
+                                (opt*   (search " - " i j)
+                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i))
+                                        (set i (sub (+ j 3) (maxint) i)) )
+                                (opt    (lmatch remove i "options: "))
+                                (opt*   (search " " i j)
+                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i))
+                                        (set i (sub (+ j 1) (maxint) i)) )
+                                (opt    (<> i "")
+                                        (dump-bitstream-vid-user-data-put info grouped max acc i) )
+                                (if (<> acc "")
+                                then    (dump-field info "User data" acc) ))
+                        (seq    (search " - " i)
+                                (set acc "")
+                                (opt*   (search " - " i j)
+                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i))
+                                        (set i (sub (+ j 3) (maxint) i)) )
+                                (opt    (<> i "")
+                                        (dump-bitstream-vid-user-data-put info grouped max acc i) )
+                                (if (<> acc "")
+                                then    (dump-field info "User data" acc) ))
+                        (dump-field info "User data" i) )))
+
+(defnet dump-bitstream-vid-user-data-put (info grouped max @acc l)
+        (if grouped
+        then    (if (<= (+ (length @acc) 3 (length l)) max)
+                then    (inc @acc (if (= @acc "") "" " | ") l)
+                else    (if (<> @acc "")
+                        then    (dump-field info "User data" @acc) )
+                        (set @acc l) )
+        else    (dump-field info "User data" l) ))
+
+(defnet dump-bitstream-vid-mpeg4-asp (info vid)
+        (deflocal i j k)
+
+        (set i (vid-packed vid))
+        (if (and <info "complete"> (= i undef)) then (set i false))
+        (if (<> i undef)
+        then    (dump-field info "Packed bitstream"
+                        (if i (+ $"Yes" (if (> (vid-max-bframes vid) 1) " (*)" ""))
+                              "No" )))
+
+        (dump-boolean info "QPel" (vid-qpel vid))
+
+        (if (= (vid-sprite-enable vid) 2)
+        then    (dump-field info "GMC" (sprint $"Yes" " (warp points: "
+                        (vid-sprite-warping-points vid) ")"
+                        (if (>= (vid-sprite-warping-points vid) 3) " (*)" "") ))
+        else    (dump-boolean info "GMC" false) )
+
+        (set i (vid-tff vid))
+        (dump-field info $"Interlaced"
+                (+ (if (vid-interlaced vid) (+ $"Yes" " (*)") "No")
+                   (if (<> i undef) (if i " (top field first)" " (bottom field first)") "") ))
+
+        (set i (vid-par vid))
+        (if (= i 15)
+        then    (set j (vid-par-w vid))
+                (set k (vid-par-h vid))
+                (dump-field info "Aspect ratio" (sprint (ar-desc-mpeg4-asp i) " (" j ":" k " = " (approx (/ j k) <info "decimals">) ")"))
+        else    (dump-field info "Aspect ratio" (ar-desc-mpeg4-asp i)) )
+
+        (if (vid-mpeg-quant vid)
+        then    (set i (vid-quant-matrix vid 0 0))
+                (set j (vid-quant-matrix vid 1 0))
+                (dump-field info "Quant type" (sprint "MPEG" (if (or (<> i undef) (<> j undef)) " custom" "")))
+                (if (<> i undef)
+                then    (dump-field info "Custom intra quant matrix" "")
+                        (dump-matrix info vid 0 0 8) )
+                (if (<> j undef)
+                then    (dump-field info "Custom inter quant matrix" "")
+                        (dump-matrix info vid 1 0 8) )
+        else    (dump-field info "Quant type" "H.263") ))
+
+(defnet dump-bitstream-vid-mpeg4-avc (info vid)
+        (deflocal i j k l)
+
+        (for i in 1 .. (vid-sps-cnt vid) do
+                (dump-field info "SPS id" (vid-sps-id vid (for-pos)))
+                (dump-field info (+ (indent info) "Profile")
+                        (sprint (avc-profile (vid-profile-idc vid (for-pos))) "@L"
+                                (/ (vid-level-idc vid (for-pos)) 10) ))
+                (dump-field info (+ (indent info) "Num ref frames") (vid-num-ref-frames vid (for-pos)))
+                (set j (vid-par vid (for-pos)))
+                (if (and (<> j undef) (> j 0))
+                then    (if (= j 255)
+                        then    (set k (vid-par-w vid (for-pos)))
+                                (set l (vid-par-h vid (for-pos)))
+                                (dump-field info (+ (indent info) "Aspect ratio") (+ "Custom pixel shape" " (" k ":" l " = " (approx (/ k l) <info "decimals">) ")"))
+                        else    (dump-field info (+ (indent info) "Aspect ratio") (ar-desc-mpeg4-avc j)) ))
+                (set j (vid-chroma-format-idc vid (for-pos)))
+                (if (in j 0 .. 3)
+                then    (dump-field info (+ (indent info) "Chroma format") <[ "monochrome" "YUV 4:2:0" "YUV 4:2:2" "YUV 4:4:4" ] j>) )
+                (for j in 0 .. 7 do
+                        (if (<> (vid-quant-matrix vid j 0 (for-pos)) undef)
+                        then    (dump-field info
+                                        (+ (+ (indent info) "Custom ")
+                                           <[ "intra4X4 luma" "intra4X4 chromau" "intra4x4 chromav"
+                                                    "inter4X4 luma" "inter4X4 chromau" "inter4x4 chromav"
+                                                    "intra8X8 luma" "inter8X8 luma" ]  j>)
+                                        "" )
+                                (dump-matrix info vid j (for-pos) (if (< j 6) 4 8)) )))
+
+        (for i in 1 .. (vid-pps-cnt vid) do
+                (dump-field info "PPS id" (sprint (vid-pps-id vid (for-pos))
+                                        " (SPS: " (vid-pps-sps-id vid (for-pos)) ")" ))
+                (dump-field info (+ (indent info) $"Entropy coding type")
+                        (if (vid-entropy-coding-mode vid (for-pos))
+                                "CABAC"
+                                "CAVLC" ))
+                (dump-field info (+ (indent info) "Weighted prediction")
+                        (if (vid-weighted-pred vid (for-pos))
+                                "P slices - explicit weighted prediction"
+                                "No" ))
+                (set j (vid-weighted-bipred-idc vid (for-pos)))
+                (dump-field info (+ (indent info) "Weighted bipred idc") <[
+                        "No"
+                        "B slices - explicit weighted prediction"
+                        "B slices - implicit weighted prediction" ]  j>)
+                (dump-boolean info (+ (indent info) "8x8dct") (vid-transform_8x8_mode_flag vid (for-pos)))
+                (for j in 12 .. 19 do
+                        (if (<> (vid-quant-matrix vid j 0 (for-pos)) undef)
+                        then    (dump-field info
+                                        (+ (+ (indent info) "Custom ")
+                                           <[ "intra4X4 luma" "intra4X4 chromau" "intra4x4 chromav"
+                                                           "inter4X4 luma" "inter4X4 chromau" "inter4x4 chromav"
+                                                           "intra8X8 luma" "inter8X8 luma" ]  (- j 12)>)
+                                        "" )
+                                (dump-matrix info vid j (for-pos) (if (< j 17) 4 8)) ))))
+
+(defnet dump-matrix (info vid n sps-idx dim)
+        (deflocal i j s)
+
+        (for i in 0 .. (- dim 1) do
+                (set s "")
+                (for j in 0 .. (- dim 1) do
+                        (set s (+ s (int->str (vid-quant-matrix vid n (+ (* dim i) j) sps-idx) 4 ' '))) )
+                (dump-field info "" s) ))
+
+(defnet dump-frame-types (info vid)
+        (deflocal bs-type tot max i j)
+
+        (set bs-type (vid-bitstream-type vid))
+        (set tot (vid-cnt-vop vid))
+        (if (> tot 0)
+        then    (dump-nl info)
+                (set max 0)
+                (for i in 0 .. 4 do
+                        (set max (max max (vid-cnt-qscale-cnt vid i 0 0))) )
+                (for i in 0 .. 4 do
+                        (dump-percent-line info (vid-cnt-qscale-cnt vid i 0 0) tot max j)
+                        (dump-field info (if (= bs-type 3) (slice-type i) (vop-type i)) j) )))
+
+(defnet dump-bframes (info vid)
+        (deflocal max tot i j)
+
+        (set max (vid-max-bframes vid))
+        (if (> max 0)
+        then    (dump-nl info)
+                (dump-field info $"Max consecutive B-VOPs" (sprint
+                        max (if (> max 2) " (*)" "") )))
+        (if (> max 1)
+        then    (set tot 0)
+                (set max 0)
+                (for i in 1 .. 8 do
+                        (set j (vid-cnt-bframes vid i))
+                        (set tot (+ tot j))
+                        (set max (max max j)) )
+                (for i in 1 .. 8 do
+                        (set j (vid-cnt-bframes vid i))
+                        (if (> j 0)
+                        then    (dump-percent-line info j tot max j)
+                                (dump-field info (+ (indentn info 2) i " consec") j) ))))
+
+(defnet dump-warp-points (info vid)
+        (deflocal max tot i j)
+
+        (set max 0)
+        (set tot 0)
+        (for i in 1 .. 4 do
+                (set j (vid-cnt-warp-points-used vid i))
+                (set tot (+ tot j))
+                (set max (max max j)) )
+        (if (> tot 0)
+        then    (dump-nl info)
+                (dump-field info $"Used warp points" "")
+                (for i in 1 .. 4 do
+                        (set j (vid-cnt-warp-points-used vid i))
+                        (if (> j 0)
+                        then    (dump-percent-line info j tot max j)
+                                (dump-field info (int->str i 5 ' ') j) ))))
+
+(defnet dump-drf (info vid fps tosub-a tosub-b)
+        (deflocal bs-type types max-qscale
+                  n nmax avg dev max
+                  type i j )
+
+        (set bs-type (vid-bitstream-type vid))
+        (if (= bs-type 3)
+        then    (set types 4)
+                (set max-qscale 40)
+        else    (set types 3)
+                (set max-qscale 10) )
+        (set n (cnt-qscale-cnt vid types tosub-a tosub-b))
+        (if (> n 0)
+        then    (set avg (/ (cnt-qscale-avg vid types tosub-a tosub-b) n))
+                (set dev (sqrt (- (/ (cnt-qscale-var vid types tosub-a tosub-b) n)
+                                  (* avg avg) )))
+                (set max (cnt-qscale-max vid types tosub-a tosub-b))
+
+                (dump-section info (+ $"DRF analysis"
+                        (if (and (= tosub-a 0) (= tosub-b 0)) "" $" (corrected)") ))
+
+                (opt    (or (> tosub-a 0) (> tosub-b 0))
+                        (if (> tosub-a 0)
+                        then    (set i (/ tosub-a fps))
+                                (dump-field info $"End of start credits time position" (+
+                                        (date-s2hhmmss i) " (" (approx i <info "decimals">) " s) - "
+                                        $"ignored frames: " tosub-a )))
+                        (if (> tosub-b 0)
+                        then    (set i (/ (- (length vid) tosub-b) fps))
+                                (dump-field info $"End credits time position" (+
+                                        (date-s2hhmmss i) " (" (approx i <info "decimals">) " s) - "
+                                        $"ignored frames: " tosub-b )))
+                        (dump-nl info) )
+
+                (dump-field info $"average DRF" (approx avg <info "decimals">))
+                (dump-field info $"standard deviation" (approx dev <info "decimals">))
+                (dump-field info "max DRF" max)
+
+                (dump-nl info)
+
+                (set nmax 0)
+                (for i in 1 .. max-qscale do
+                        (set nmax (max nmax (cnt-qscale vid i types tosub-a tosub-b))) )
+
+                (set i 1)
+                (repeat until (> (cnt-qscale vid i types tosub-a tosub-b) 0)
+                        until (= i max-qscale)
+                        (set i (+ i 1)) )
+
+                (if (> i 1)
+                then    (dump-percent-line info 0 n nmax j)
+                        (dump-field info (sprint "DRF<" i) j) )
+
+                (repeat until (= i max-qscale)
+                        until (> i max)
+                        (dump-percent-line info (cnt-qscale vid i types tosub-a tosub-b) n nmax j)
+                        (dump-field info (sprint "DRF=" i) j)
+                        (set i (+ i 1)) )
+
+                (dump-percent-line info (cnt-qscale vid i types tosub-a tosub-b) n nmax j)
+                (dump-field info (sprint "DRF>" (- i 1)) j)
+
+                (for type in 0 .. types do
+                        (set n (vid-cnt-qscale-cnt vid type tosub-a tosub-b))
+                        (if (> n 0)
+                        then    (set max (vid-cnt-qscale-max vid type tosub-a tosub-b))
+                                (set avg (/ (vid-cnt-qscale-avg vid type tosub-a tosub-b) n))
+                                (set dev (sqrt (- (/ (vid-cnt-qscale-var vid type tosub-a tosub-b) n) (* avg avg))))
+
+                                (dump-nl info)
+                                (set i (if (= bs-type 3) (slice-type type) (vop-type type)))
+                                (dump-field info (+ i $" average DRF") (approx avg <info "decimals">))
+                                (dump-field info (+ i $" std. deviation") (approx dev <info "decimals">))
+                                (dump-field info (+ i " max DRF") max) ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-profile-compliancy (info)
+        (opt (dump-profile-compliancy-basic info)) )
+
+(defnet dump-profile-compliancy-basic (info)
+        (deflocal default-info profile w h fps vid i
+                  vbv-size vbv-init vbv-fill vbv-min-fill r0 size
+                  max-underflows underflows )
+
+        (set default-info <info "default">)
+        (= (cfg-get-or-default "enabled-profile-compliancy" default-info) true)
+        (for i in 1 .. <info "video"> do
+                (opt (info->vid-fps-res-basic info (for-pos) vid fps w h))
+                until (vidp vid) )
+        (integerp w)
+        (integerp h)
+
+        (dump-section info $"Profile compliancy")
+
+        (set profile <(cfg-get "profiles") (cfg-get-or-default-num "profile" default-info)>)
+        (dump-field info $"Selected profile" <profile 0>)
+
+        (dump-field info $"Resolution"
+                (if (and (or (= <profile 1> 0) (<= w <profile 1>))
+                         (or (= <profile 2> 0) (<= h <profile 2>)) )
+                        "Ok"
+                        (sprint w " x " h " > "
+                                <profile 1> " x " <profile 2> )))
+
+        (dump-field info "Framerate"
+                (if (or (= <profile 3> 0)
+                        (<= (abs (- <profile 3> fps))
+                            (if (= <profile 3> 25) 0 0.04) ))
+                "Ok"
+                (sprint (approx fps <info "decimals">) " <> " <profile 3>) ))
+
+        (= <info "complete"> true)
+        (vidp vid)
+
+        (set vbv-size (rint (/ <profile 4> 8)))
+        (set vbv-init (rint (/ <profile 5> 8)))
+        (set vbv-fill vbv-init)
+        (set vbv-min-fill (maxint))
+        (set r0 (rint (/ <profile 6> fps 8)))
+        (set max-underflows 20)
+        (set underflows 0)
+        (for i in 0 .. (- (cnt-qscale-cnt vid 5 0 0) 1) do
+                (set size (vid-cnt-size-frame vid i))
+                (set vbv-fill (+ vbv-fill r0))
+                (if (< vbv-fill size)
+                then    (dump-field info "Buffer underflow" (sprint
+                                                (date-s2hhmmss (/ i fps)) " (frame " i ")" ))
+                        (set vbv-fill vbv-init)
+                        (set underflows (+ underflows 1))
+                        (if (= underflows max-underflows)
+                        then    (dump-field info $"Error" $"Too many violations") )
+                else    (set vbv-fill (min vbv-size (- vbv-fill size)))
+                        (set vbv-min-fill (min vbv-min-fill vbv-fill)) )
+                until (= underflows max-underflows) )
+        (if (= underflows 0)
+        then    (dump-field info $"Min buffer fill"
+                (sprint (rint (/ vbv-min-fill vbv-size 0.01)) "%") )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-mkv-content-encodings (info track)
+        (deflocal a asc i j k)
+
+        (set a <track "ContentEncodings">)
+        (if (> (length a) 0)
+        then    (for i in a do
+                        (set asc (cdr i))
+                        (dump-field info (+ "Content encoding"
+                                            (if (= (length a) 1) ""
+                                                (+ " nr. " (+ (for-pos) 1)) )) "" )
+                        (dump-field info (+ (indent info) "order") (car i))
+                        (set j <asc "ContentEncodingScope">)
+                        (set k (queue))
+                        (if (= (flags-field j 0 1) 1)
+                        then    (queue-put k "all frames") )
+                        (if (= (flags-field j 1 1) 1)
+                        then    (queue-put k "codec private") )
+                        (if (= (flags-field j 2 1) 1)
+                        then    (queue-put k "next content encoding") )
+                        (dump-field info (+ (indent info) "scope") (sprintl k " + "))
+                        (set j <asc "ContentEncodingType">)
+                        (dump-field info (+ (indent info) "type") <[ "compression" "encryption" ] j>)
+                        (if (= j 0)
+                        then    (set j <asc "ContentCompAlgo">)
+                                (dump-field info (+ (indent info) "compression algorithm") <[ "zlib" "bzlib" "lzo1x" "header stripping" ] j
+>)
+                                (if (= j 3)
+                                then    (set j <asc "ContentCompSettings">)
+                                        (if (rawp j)
+                                        then    (dump-bytes info (+ (indent info) "stripped header") (length j)) ))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-mkv-attachments (info)
+        (deflocal q a i)
+
+        (if (and (= <info "filetype"> "mkv")
+                 (cfg-get-or-default "enabled-attachments"
+                        <info "default"> ))
+        then    (set q <info "fileinfo" "Attachments">)
+                (for a in q do
+                        (dump-section info (+ $"Attached file"
+                                (if (= (length q) 1) "" (+ $" nr. " (+ (for-pos) 1))) ))
+                        (set i <a "FileDescription">)
+                        (if (<> i undef)
+                        then    (dump-field info $"Description" i) )
+                        (set i <a "FileName">)
+                        (if (<> i undef)
+                        then    (dump-field info $"File name" i) )
+                        (set i <a "FileMimeType">)
+                        (if (<> i undef)
+                        then    (dump-field info "MIME type" i) )
+                        (dump-bytes info $"Size" (cdr <a "FileData">))
+                        (set i <a "FileUID">)
+                        (if (<> i undef)
+                        then    (dump-field info "UID" i) ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-mkv-chapters (info)
+        (deflocal q a i)
+
+        (if (and (= <info "filetype"> "mkv")
+                 (cfg-get-or-default "enabled-chapters"
+                        <info "default"> ))
+        then    (set q <info "fileinfo" "Editions">)
+                (for a in q do
+                        (dump-section info (+ "Edition entry"
+                                (if (= (length q) 1) "" (+ " nr. " (+ (for-pos) 1))) ))
+                        (set i <(cdr a) "EditionUID">)
+                        (if (<> i undef)
+                        then    (dump-field info "UID" i) )
+                        (dump-boolean info $"Hidden" <(cdr a) "EditionFlagHidden">)
+                        (dump-boolean info $"Selected by default" <(cdr a) "EditionFlagDefault">)
+                        (dump-boolean info "Playlist" <(cdr a) "EditionFlagOrdered">)
+                        (dump-field info $"Chapters" "")
+                        (dump-mkv-chapters-rec info (car a)
+                                (cfg-get-or-default "chapter-display-grouped" <info "default">)
+                                0 ))))
+
+(defnet dump-mkv-chapters-rec (info a chap-disp-grouped level)
+        (deflocal i j displays s c)
+
+        (for i in a do
+                (set displays <(cdr i) "displays">)
+                (if (= (length displays) 0)
+                then    (dump-field info
+                                (+ (indentn info level) (s->hhmmss (car i)) "-"
+                                   (s->hhmmss <(cdr i) "ChapterTimeEnd">) )
+                                (+ (indentn info level) $"Chapter nr. " (+ (for-pos) 1)) )
+                else    (for j in displays do
+                                (set s <j "ChapString">)
+                                (set c <j "ChapCountry">)
+                                (if (= s undef)
+                                then    (set s (+ $"Chapter nr. " (+ (for-pos) 1))) )
+                                (dump-field info
+                                        (if (and chap-disp-grouped (> (for-pos) 0)) ""
+                                                (+ (indentn info level) (s->hhmmss (car i)) "-"
+                                                   (s->hhmmss <(cdr i) "ChapterTimeEnd">) ))
+                                        (+ (indentn info level) s " {" <j "ChapLanguage"> "}"
+                                           (if (= c undef) "" (+ " [" c "]")) ))))
+                (set j <(cdr i) "ChapterAtom">)
+                (if (<> j undef)
+                then    (dump-mkv-chapters-rec info j chap-disp-grouped (+ level 1)) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

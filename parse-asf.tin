@@ -1,0 +1,549 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-asf (info f)
+        (not <info "aborted">)
+        (fsetpos 0 f)
+        (= (parse-asf-guid f) 0)
+        (fsetpos 0 f)
+
+        (set <info "filetype"> "asf")
+        (set <info "cleaner"> (netptr parse-asf-clean)) )
+
+(defnet parse-asf-clean (fileinfo)
+        (skip) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun parse-asf-guid (f) net parse-asf-guid)
+(defnet parse-asf-guid (f @guid)
+        (deflocal l i)
+
+        (set l (parse-asf-guid1 f))
+        (<> l undef)
+        (alt    (in l
+                    [ ; Header (0)
+                      [ 0x30 0x26 0xB2 0x75
+                        0x8E 0x66 0xCF 0x11
+                        0xA6 0xD9 0x00 0xAA
+                        0x00 0x62 0xCE 0x6C ]
+
+                      ; Data (1)
+                      [ 0x36 0x26 0xB2 0x75
+                        0x8E 0x66 0xCF 0x11
+                        0xA6 0xD9 0x00 0xAA
+                        0x00 0x62 0xCE 0x6C ]
+
+                      ; Simple_Index (2)
+                      [ 0x90 0x08 0x00 0x33
+                        0xB1 0xE5 0xCF 0x11
+                        0x89 0xF4 0x00 0xA0
+                        0xC9 0x03 0x49 0xCB ]
+
+                      ; Index (3)
+                      [ 0xD3 0x29 0xE2 0xD6
+                        0xDA 0x35 0xD1 0x11
+                        0x90 0x34 0x00 0xA0
+                        0xC9 0x03 0x49 0xBE ]
+
+                      ; Media_Object_Index (4)
+                      [ 0xF8 0x03 0xB1 0xFE
+                        0xAD 0x12 0x64 0x4C
+                        0x84 0x0F 0x2A 0x1D
+                        0x2F 0x7A 0xD4 0x8C ]
+
+                      ; Timecode_Index (5)
+                      [ 0xD0 0x3F 0xB7 0x3C
+                        0x4A 0x0C 0x03 0x48
+                        0x95 0x3D 0xED 0xF7
+                        0xB6 0x22 0x8F 0x0C ]
+
+                      ; File_Properties (6)
+                      [ 0xA1 0xDC 0xAB 0x8C
+                        0x47 0xA9 0xCF 0x11
+                        0x8E 0xE4 0x00 0xC0
+                        0x0C 0x20 0x53 0x65 ]
+
+                      ; Stream_Properties (7)
+                      [ 0x91 0x07 0xDC 0xB7
+                        0xB7 0xA9 0xCF 0x11
+                        0x8E 0xE6 0x00 0xC0
+                        0x0C 0x20 0x53 0x65 ]
+
+                      ; Header_Extension (8)
+                      [ 0xB5 0x03 0xBF 0x5F
+                        0x2E 0xA9 0xCF 0x11
+                        0x8E 0xE3 0x00 0xC0
+                        0x0C 0x20 0x53 0x65 ]
+
+                      ; Codec_List (9)
+                      [ 0x40 0x52 0xD1 0x86
+                        0x1D 0x31 0xD0 0x11
+                        0xA3 0xA4 0x00 0xA0
+                        0xC9 0x03 0x48 0xF6 ]
+
+                      ; Script_Command (10)
+                      [ 0x30 0x1A 0xFB 0x1E
+                        0x62 0x0B 0xD0 0x11
+                        0xA3 0x9B 0x00 0xA0
+                        0xC9 0x03 0x48 0xF6 ]
+
+                      ; Marker (11)
+                      [ 0x01 0xCD 0x87 0xF4
+                        0x51 0xA9 0xCF 0x11
+                        0x8E 0xE6 0x00 0xC0
+                        0x0C 0x20 0x53 0x65 ]
+
+                      ; Bitrate_Mutual_Exclusion (12)
+                      [ 0xDC 0x29 0xE2 0xD6
+                        0xDA 0x35 0xD1 0x11
+                        0x90 0x34 0x00 0xA0
+                        0xC9 0x03 0x49 0xBE ]
+
+                      ; Error_Correction (13)
+                      [ 0x35 0x26 0xB2 0x75
+                        0x8E 0x66 0xCF 0x11
+                        0xA6 0xD9 0x00 0xAA
+                        0x00 0x62 0xCE 0x6C ]
+
+                      ; Content_Description (14)
+                      [ 0x33 0x26 0xB2 0x75
+                        0x8E 0x66 0xCF 0x11
+                        0xA6 0xD9 0x00 0xAA
+                        0x00 0x62 0xCE 0x6C ]
+
+                      ; Extended_Content_Description (15)
+                      [ 0x40 0xA4 0xD0 0xD2
+                        0x07 0xE3 0xD2 0x11
+                        0x97 0xF0 0x00 0xA0
+                        0xC9 0x5E 0xA8 0x50 ]
+
+                      ; Content_Branding (16)
+                      [ 0xFA 0xB3 0x11 0x22
+                        0x23 0xBD 0xD2 0x11
+                        0xB4 0xB7 0x00 0xA0
+                        0xC9 0x55 0xFC 0x6E ]
+
+                      ; Stream_Bitrate_Properties (17)
+                      [ 0xCE 0x75 0xF8 0x7B
+                        0x8D 0x46 0xD1 0x11
+                        0x8D 0x82 0x00 0x60
+                        0x97 0xC9 0xA2 0xB2 ]
+
+                      ; Content_Encryption (18)
+                      [ 0xFB 0xB3 0x11 0x22
+                        0x23 0xBD 0xD2 0x11
+                        0xB4 0xB7 0x00 0xA0
+                        0xC9 0x55 0xFC 0x6E ]
+
+                      ; Extended_Content_Encryption (19)
+                      [ 0x14 0xE6 0x8A 0x29
+                        0x22 0x26 0x17 0x4C
+                        0xB9 0x35 0xDA 0xE0
+                        0x7E 0xE9 0x28 0x9C ]
+
+                      ; Digital_Signature (20)
+                      [ 0xFC 0xB3 0x11 0x22
+                        0x23 0xBD 0xD2 0x11
+                        0xB4 0xB7 0x00 0xA0
+                        0xC9 0x55 0xFC 0x6E ]
+
+                      ; Padding (21)
+                      [ 0x74 0xD4 0x06 0x18
+                        0xDF 0xCA 0x09 0x45
+                        0xA4 0xBA 0x9A 0xAB
+                        0xCB 0x96 0xAA 0xE8 ]
+
+                      ; Extended_Stream_Properties (22)
+                      [ 0xCB 0xA5 0xE6 0x14
+                        0x72 0xC6 0x32 0x43
+                        0x83 0x99 0xA9 0x69
+                        0x52 0x06 0x5B 0x5A ]
+
+                      ; Advanced_Mutual_Exclusion (23)
+                      [ 0xCF 0x49 0x86 0xA0
+                        0x75 0x47 0x70 0x46
+                        0x8A 0x16 0x6E 0x35
+                        0x35 0x75 0x66 0xCD ]
+
+                      ; Group_Mutual_Exclusion (24)
+                      [ 0x40 0x5A 0x46 0xD1
+                        0x79 0x5A 0x38 0x43
+                        0xB7 0x1B 0xE3 0x6B
+                        0x8F 0xD6 0xC2 0x49 ]
+
+                      ; Stream_Prioritization (25)
+                      [ 0x5B 0xD1 0xFE 0xD4
+                        0xD3 0x88 0x4F 0x45
+                        0x81 0xF0 0xED 0x5C
+                        0x45 0x99 0x9E 0x24 ]
+
+                      ; Bandwidth_Sharing (26)
+                      [ 0xE6 0x09 0x96 0xA6
+                        0x7B 0x51 0xD2 0x11
+                        0xB6 0xAF 0x00 0xC0
+                        0x4F 0xD9 0x08 0xE9 ]
+
+                      ; Language_List (27)
+                      [ 0xA9 0x46 0x43 0x7C
+                        0xE0 0xEF 0xFC 0x4B
+                        0xB2 0x29 0x39 0x3E
+                        0xDE 0x41 0x5C 0x85 ]
+
+                      ; Metadata (28)
+                      [ 0xEA 0xCB 0xF8 0xC5
+                        0xAF 0x5B 0x77 0x48
+                        0x84 0x67 0xAA 0x8C
+                        0x44 0xFA 0x4C 0xCA ]
+
+                      ; Metadata_Library (29)
+                      [ 0x94 0x1C 0x23 0x44
+                        0x98 0x94 0xD1 0x49
+                        0xA1 0x41 0x1D 0x13
+                        0x4E 0x45 0x70 0x54 ]
+
+                      ; Index_Parameters (30)
+                      [ 0xDF 0x29 0xE2 0xD6
+                        0xDA 0x35 0xD1 0x11
+                        0x90 0x34 0x00 0xA0
+                        0xC9 0x03 0x49 0xBE ]
+
+                      ; Media_Object_Index_Parameters (31)
+                      [ 0xAD 0x3B 0x20 0x6B
+                        0x11 0x3F 0xE4 0x48
+                        0xAC 0xA8 0xD7 0x61
+                        0x3D 0xE2 0xCF 0xA7 ]
+
+                      ; Timecode_Index_Parameters (32)
+                      [ 0x6D 0x49 0x5E 0xF5
+                        0x97 0x97 0x5D 0x4B
+                        0x8C 0x8B 0x60 0x4D
+                        0xFE 0x9B 0xFB 0x24 ]
+
+                      ; Compatibility (33)
+                      [ 0x30 0x26 0xB2 0x75
+                        0x8E 0x66 0xCF 0x11
+                        0xA6 0xD9 0x00 0xAA
+                        0x00 0x62 0xCE 0x6C ]
+
+                      ; Advanced_Content_Encryption (34)
+                      [ 0x33 0x85 0x05 0x43
+                        0x81 0x69 0xE6 0x49
+                        0x9B 0x74 0xAD 0x12
+                        0xCB 0x86 0xD5 0x8C ]
+
+                      ; Audio_Media (35)
+                      [ 0x40 0x9E 0x69 0xF8
+                        0x4D 0x5B 0xCF 0x11
+                        0xA8 0xFD 0x00 0x80
+                        0x5F 0x5C 0x44 0x2B ]
+
+                      ; Video_Media (36)
+                      [ 0xC0 0xEF 0x19 0xBC
+                        0x4D 0x5B 0xCF 0x11
+                        0xA8 0xFD 0x00 0x80
+                        0x5F 0x5C 0x44 0x2B ]
+
+                      ; Command_Media (37)
+                      [ 0xC0 0xCF 0xDA 0x59
+                        0xE6 0x59 0xD0 0x11
+                        0xA3 0xAC 0x00 0xA0
+                        0xC9 0x03 0x48 0xF6 ]
+
+                      ; JFIF_Media (38)
+                      [ 0x00 0xE1 0x1B 0xB6
+                        0x4E 0x5B 0xCF 0x11
+                        0xA8 0xFD 0x00 0x80
+                        0x5F 0x5C 0x44 0x2B ]
+
+                      ; Degradable_JPEG_Media (39)
+                      [ 0xE0 0x7D 0x90 0x35
+                        0x15 0xE4 0xCF 0x11
+                        0xA9 0x17 0x00 0x80
+                        0x5F 0x5C 0x44 0x2B ]
+
+                      ; File_Transfer_Media (40)
+                      [ 0x2C 0x22 0xBD 0x91
+                        0x1C 0xF2 0x7A 0x49
+                        0x8B 0x6D 0x5A 0xA8
+                        0x6B 0xFC 0x01 0x85 ]
+
+                      ; Binary_Media (41)
+                      [ 0xE2 0x65 0xFB 0x3A
+                        0xEF 0x47 0xF2 0x40
+                        0xAC 0x2C 0x70 0xA9
+                        0x0D 0x71 0xD3 0x43 ]
+
+                      ; Web_Stream_Media_Subtype (42)
+                      [ 0xD4 0x57 0x62 0x77
+                        0x27 0xC6 0xCB 0x41
+                        0x8F 0x81 0x7A 0xC7
+                        0xFF 0x1C 0x40 0xCC ]
+
+                      ; Web_Stream_Format (43)
+                      [ 0x13 0x6B 0x1E 0xDA
+                        0x59 0x83 0x50 0x40
+                        0xB3 0x98 0x38 0x8E
+                        0x96 0x5B 0xF0 0x0C ]
+
+                      ; No_Error_Correction (44)
+                      [ 0x00 0x57 0xFB 0x20
+                        0x55 0x5B 0xCF 0x11
+                        0xA8 0xFD 0x00 0x80
+                        0x5F 0x5C 0x44 0x2B ]
+
+                      ; Audio_Spread (45)
+                      [ 0x50 0xCD 0xC3 0xBF
+                        0x8F 0x61 0xCF 0x11
+                        0x8B 0xB2 0x00 0xAA
+                        0x00 0xB4 0xE2 0x20 ]
+
+                      ; Reserved_1 (46)
+                      [ 0x11 0xD2 0xD3 0xAB
+                        0xBA 0xA9 0xcf 0x11
+                        0x8E 0xE6 0x00 0xC0
+                        0x0C 0x20 0x53 0x65 ]
+
+                      ; Content_Encryption_System_Windows_Media_DRM_Network_Devices (47)
+                      [ 0xB6 0x9B 0x07 0x7A
+                        0xA4 0xDA 0x12 0x4e
+                        0xA5 0xCA 0x91 0xD3
+                        0x8D 0xC1 0x1A 0x8D ]
+
+                      ; Reserved_2 (48)
+                      [ 0x41 0x52 0xD1 0x86
+                        0x1D 0x31 0xD0 0x11
+                        0xA3 0xA4 0x00 0xA0
+                        0xC9 0x03 0x48 0xF6 ]
+
+                      ; Reserved_3 (49)
+                      [ 0xE3 0xCB 0x1A 0x4B
+                        0x0B 0x10 0xD0 0x11
+                        0xA3 0x9B 0x00 0xA0
+                        0xC9 0x03 0x48 0xF6 ]
+
+                      ; Reserved_4 (50)
+                      [ 0x20 0xDB 0xFE 0x4C
+                        0xF6 0x75 0xCF 0x11
+                        0x9C 0x0F 0x00 0xA0
+                        0xC9 0x03 0x49 0xCB ]
+
+                      ; Mutex_Language (51)
+                      [ 0x00 0x2A 0xE2 0xD6
+                        0xDA 0x35 0xD1 0x11
+                        0x90 0x34 0x00 0xA0
+                        0xC9 0x03 0x49 0xBE ]
+
+                      ; Mutex_Bitrate (52)
+                      [ 0x01 0x2A 0xE2 0xD6
+                        0xDA 0x35 0xD1 0x11
+                        0x90 0x34 0x00 0xA0
+                        0xC9 0x03 0x49 0xBE ]
+
+                      ; Mutex_Unknown (53)
+                      [ 0x02 0x2A 0xE2 0xD6
+                        0xDA 0x35 0xD1 0x11
+                        0x90 0x34 0x00 0xA0
+                        0xC9 0x03 0x49 0xBE ]
+
+                      ; Bandwidth_Sharing_Exclusive (54)
+                      [ 0xAA 0x60 0x60 0xAF
+                        0x97 0x51 0xD2 0x11
+                        0xB6 0xAF 0x00 0xC0
+                        0x4F 0xD9 0x08 0xE9 ]
+
+                      ; Bandwidth_Sharing_Partial (55)
+                      [ 0xAB 0x60 0x60 0xAF
+                        0x97 0x51 0xD2 0x11
+                        0xB6 0xAF 0x00 0xC0
+                        0x4F 0xD9 0x08 0xE9 ]
+
+                      ; Payload_Extension_System_Timecode (56)
+                      [ 0xEC 0x95 0x95 0x39
+                        0x67 0x86 0x2D 0x4E
+                        0x8F 0xDB 0x98 0x81
+                        0x4C 0xE7 0x6C 0x1E ]
+
+                      ; Payload_Extension_System_File_Name (57)
+                      [ 0x0E 0xEC 0x65 0xE1
+                        0xED 0x19 0xD7 0x45
+                        0xB4 0xA7 0x25 0xCB
+                        0xD1 0xE2 0x8E 0x9B ]
+
+                      ; Payload_Extension_System_Content_Type (58)
+                      [ 0x20 0xDC 0x90 0xD5
+                        0xBC 0x07 0x6C 0x43
+                        0x9C 0xF7 0xF3 0xBB
+                        0xFB 0xF1 0xA4 0xDC ]
+
+                      ; Payload_Extension_System_Pixel_Aspect_Ratio (59)
+                      [ 0x54 0xE5 0x1E 0x1B
+                        0xEA 0xF9 0xC8 0x4B
+                        0x82 0x1A 0x37 0x6B
+                        0x74 0xE4 0xC4 0xB8 ]
+
+                      ; Payload_Extension_System_Sample_Duration (60)
+                      [ 0x50 0x94 0xBD 0xC6
+                        0x7F 0x86 0x07 0x49
+                        0x83 0xA3 0xC7 0x79
+                        0x21 0xB7 0x33 0xAD ]
+
+                      ; Payload_Extension_System_Encryption_Sample_ID (61)
+                      [ 0x4E 0xB8 0x98 0x66
+                        0xFA 0x0A 0x30 0x43
+                        0xAE 0xB2 0x1C 0x0A
+                        0x98 0xD7 0xA4 0x4D ]
+
+
+
+                      ; ext stream audio
+                      [ 0x9d 0x8c 0x17 0x31
+                        0xe1 0x03 0x28 0x45
+                        0xb5 0x82 0x3d 0xf9
+                        0xdb 0x22 0xf5 0x03 ]
+
+                      [ 0x5d 0x8b 0xf1 0x26
+                        0x84 0x45 0xec 0x47
+                        0x9f 0x5f 0x0e 0x65
+                        0x1f 0x04 0x52 0xc9 ]
+
+                      [ 0x20 0xde 0xaa 0xd9
+                        0x17 0x7c 0x9c 0x4f
+                        0xbc 0x28 0x85 0x55
+                        0xdd 0x98 0xe2 0xa2 ] ]
+
+                @guid )
+                (set @guid l) ))
+
+(defun parse-asf-guid1 (f)
+        (parse-asf-guid2 f 16) )
+
+(defun parse-asf-guid2 (f n)
+        (if (= n 0) nil
+                (parse-asf-guid3 (freadchar f) f n) ))
+
+(defun parse-asf-guid3 (c f n)
+        (if (= c undef) undef
+                (parse-asf-guid4 c (parse-asf-guid2 f (- n 1))) ))
+
+(defun parse-asf-guid4 (c l)
+        (if (= l undef) undef
+                (cons (length c) l) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun parse-asf-guid2name (guid)
+        (if (integerps guid)
+                <[ "Header"
+                          "Data"
+                          "Simple Index"
+                          "Index"
+                          "Media Object Index"
+                          "Timecode Index"
+                          "File Properties"
+                          "Stream Properties"
+                          "Header Extension"
+                          "Codec List"
+                          "Script Command"
+                          "Marker"
+                          "Bitrate Mutual Exclusion"
+                          "Error Correction"
+                          "Content Description"
+                          "Extended Content Description"
+                          "Content Branding"
+                          "Stream Bitrate Properties"
+                          "Content Encryption"
+                          "Extended Content Encryption"
+                          "Digital Signature"
+                          "Padding"
+                          "Extended Stream Properties"
+                          "Advanced Mutual Exclusion"
+                          "Group Mutual Exclusion"
+                          "Stream Prioritization"
+                          "Bandwidth Sharing"
+                          "Language List"
+                          "Metadata"
+                          "Metadata Library"
+                          "Index Parameters"
+                          "Media Object Index Parameters"
+                          "Timecode Index Parameters"
+                          "Compatibility"
+                          "Advanced Content Encryption"
+                          "Audio Media"
+                          "Video Media"
+                          "Command Media"
+                          "JFIF Media"
+                          "Degradable JPEG Media"
+                          "File Transfer Media"
+                          "Binary Media"
+                          "Web Stream Media Subtype"
+                          "Web Stream Format"
+                          "No Error Correction"
+                          "Audio Spread"
+                          "Reserved 1"
+                          "Content Encryption System Windows Media DRM Network Devices"
+                          "Reserved 2"
+                          "Reserved 3"
+                          "Reserved 4"
+                          "Mutex Language"
+                          "Mutex Bitrate"
+                          "Mutex Unknown"
+                          "Bandwidth Sharing Exclusive"
+                          "Bandwidth Sharing Partial"
+                          "Payload Extension System Timecode"
+                          "Payload Extension System File Name"
+                          "Payload Extension System Content Type"
+                          "Payload Extension System Pixel Aspect Ratio"
+                          "Payload Extension System Sample Duration"
+                          "Payload Extension System Encryption Sample ID"
+
+
+
+                          "Extended Stream Audio"
+                          "guid sconosciuto 1"
+                          "guid sconosciuto 2" ]  guid
+>
+        (if (listp guid)
+                (parse-asf-guid2name2 guid)
+                undef )))
+
+(defun parse-asf-guid2name2 (l)
+        (sprintl (cons "Unknown GUID:" (parse-asf-guid2name3 l)) ' ') )
+
+(defun parse-asf-guid2name3 (l)
+        (if (= l nil) nil
+                (cons (int->hex (car l)) (parse-asf-guid2name3 (cdr l))) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

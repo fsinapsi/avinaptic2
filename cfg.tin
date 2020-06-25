@@ -1,0 +1,692 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet cfg-set (key val)
+        (set key (sqlite3-escape-strings key))
+        (if (= val undef)
+        then    (sqlite3-exec _db undef
+                        "DELETE FROM config WHERE key='" key "'" )
+        else    (if (stringp val)
+                then    (set val (sqlite3-escape-strings val)) )
+                (alt    (sqlite3-exec _db undef
+                                "INSERT INTO config VALUES('" key "','" val "')" )
+                        (sqlite3-exec _db undef
+                                "UPDATE config SET value='" val
+                                "' WHERE key='" key "'" ))))
+
+(defnet cfg-inc (key val)
+        (deflocal v)
+
+        (set v (cfg-get-num key))
+        (cfg-set key (+ (if (= v undef) 0 v) val)) )
+
+(defun cfg-get (key)
+        <(sqlite3-exec _db
+                "SELECT value FROM config WHERE key='"
+                (sqlite3-escape-strings key) "'" ) 0 0> )
+
+(defun cfg-get-or-default (key default-info) net cfg-get-or-default)
+(defnet cfg-get-or-default (key default-info @val)
+        (set @val (cfg-get key))
+        (if (= @val undef)
+        then    (set @val <default-info key>) ))
+
+(defun cfg-get-num (key)
+        (cfg-validate-num (cfg-get key)) )
+
+(defun cfg-get-or-default-num (key default-info)
+        (cfg-validate-num (cfg-get-or-default key default-info)) )
+
+(defun cfg-validate-num (val)
+        (if (complexp val) val (str->num val)) )
+
+(defun cfg-get-lang() net cfg-get-lang)
+(defnet cfg-get-lang (@lang)
+        (set @lang (cfg-get "lang"))
+        (set @lang (if (= @lang undef) (lang) (cfg-validate-num @lang))) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet cfg (info)
+        (deflocal cfg-info win vb w)
+
+        (set cfg-info (assoc))
+        (set <info "cfg-info"> cfg-info)
+
+        (set win (gtk-window-new))
+        (set <cfg-info "win"> win)
+        (gtk-window-set-transient-for win <info "win">)
+        (gtk-window-set-modal win true)
+        (gtk-window-set-resizable win false)
+        (gtk-window-set-title win $"Preferences")
+        (gtk-container-set-border-width win 10)
+        (gtk-signal-connect win "destroy" (netptr cfg-destroy) info)
+
+        (set vb (gtk-vbox-new false 10))
+        (gtk-container-add win vb)
+
+                (cfg-setup-notebook info cfg-info w)
+                (gtk-box-pack-start vb w true true 0)
+
+                (cfg-setup-buttons info w)
+                (gtk-box-pack-start vb w false false 0)
+
+        (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER))
+        (gtk-widget-show-all win) )
+
+(defnet cfg-setup-notebook (info cfg-info @w)
+        (deflocal default-info)
+
+        (set default-info <info "default">)
+        (set @w (gtk-notebook-new))
+        (cfg-setup-notebook-page1 @w default-info cfg-info)
+        (cfg-setup-notebook-page2 @w default-info cfg-info)
+        (cfg-setup-notebook-page3 @w default-info cfg-info)
+        (cfg-setup-notebook-page4 @w default-info cfg-info)
+        (cfg-setup-notebook-page5 @w default-info cfg-info) )
+
+(defnet cfg-setup-notebook-page1 (nb default-info cfg-info)
+        (deflocal vb hb hb2 w)
+
+        (set vb (gtk-vbox-new false 5))
+        (skip (gtk-notebook-append-page nb vb (gtk-label-new $"General")))
+        (gtk-container-set-border-width vb 6)
+
+        (set hb (gtk-hbox-new true 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set w (gtk-color-button-new (cfg-get-or-default "color-background" default-info)))
+                (cfg-setup-frame hb w $"Background")
+                (set <cfg-info "cb-background"> w)
+
+                (set w (gtk-color-button-new (cfg-get-or-default "color-section" default-info)))
+                (cfg-setup-frame hb w $"Section")
+                (set <cfg-info "cb-section"> w)
+
+                (set w (gtk-color-button-new (cfg-get-or-default "color-field" default-info)))
+                (cfg-setup-frame hb w $"Field name")
+                (set <cfg-info "cb-field"> w)
+
+                (set w (gtk-color-button-new (cfg-get-or-default "color-value" default-info)))
+                (cfg-setup-frame hb w $"Field value")
+                (set <cfg-info "cb-value"> w)
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set w (gtk-font-button-new (cfg-get-or-default "font" default-info)))
+                (cfg-setup-frame hb w $"Font")
+                (set <cfg-info "fb"> w)
+
+                (set hb2 (gtk-hbox-new false 5))
+                (cfg-setup-frame-no-container hb hb2 $"Tile pattern")
+
+                (set w (gtk-entry-new (cfg-get-or-default "tile-pattern" default-info)))
+                (set <cfg-info "e-tile-pattern"> w)
+                (gtk-box-pack-start hb2 w false false 0)
+
+                (set w (gtk-check-button-new $"right justified"))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "tb-tile-left"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "tile-left" default-info))
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set w (gtk-spin-button-new-with-range 4 80 1))
+                (cfg-setup-frame-no-container hb w $"Field name")
+                (set <cfg-info "sb-length-field"> w)
+                (gtk-spin-button-set-value w (cfg-get-or-default-num "length-field" default-info))
+                (gtk-spin-button-set-numeric w true)
+
+                (set w (gtk-spin-button-new-with-range 0 80 1))
+                (cfg-setup-frame-no-container hb w $"Divider")
+                (set <cfg-info "sb-length-divider"> w)
+                (gtk-spin-button-set-value w (cfg-get-or-default-num "length-divider" default-info))
+                (gtk-spin-button-set-numeric w true)
+
+                (set w (gtk-spin-button-new-with-range 10 900 1))
+                (cfg-setup-frame-no-container hb w $"Field value")
+                (set <cfg-info "sb-length-value"> w)
+                (gtk-spin-button-set-value w (cfg-get-or-default-num "length-value" default-info))
+                (gtk-spin-button-set-numeric w true)
+
+                (set hb2 (gtk-hbox-new false 5))
+                (cfg-setup-frame-no-container hb hb2 $"Indent pattern")
+
+                (set w (gtk-entry-new (cfg-get-or-default "indent-pattern" default-info)))
+                (set <cfg-info "e-indent-pattern"> w)
+                (gtk-box-pack-start hb2 w false false 0) )
+
+
+(defnet cfg-setup-notebook-page2 (nb default-info cfg-info)
+        (deflocal vb hb hb2 w)
+
+        (set vb (gtk-vbox-new false 5))
+        (skip (gtk-notebook-append-page nb vb (gtk-label-new "BBcode")))
+        (gtk-container-set-border-width vb 6)
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set hb2 (gtk-hbox-new false 5))
+                (cfg-setup-frame hb hb2 $"Section")
+
+                (set w (gtk-color-button-new (cfg-get-or-default "bbcode-color-section" default-info)))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "cb-bbcode-section"> w)
+
+                (set w (gtk-check-button-new $"bold"))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "tb-bbcode-bold-section"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "bbcode-bold-section" default-info))
+
+                (set w (gtk-check-button-new $"underline"))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "tb-bbcode-underline-section"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "bbcode-underline-section" default-info))
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set hb2 (gtk-hbox-new false 5))
+                (cfg-setup-frame hb hb2 $"Field name")
+
+                (set w (gtk-color-button-new (cfg-get-or-default "bbcode-color-field" default-info)))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "cb-bbcode-field"> w)
+
+                (set w (gtk-check-button-new $"bold"))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "tb-bbcode-bold-field"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "bbcode-bold-field" default-info))
+
+                (set w (gtk-check-button-new $"underline"))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "tb-bbcode-underline-field"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "bbcode-underline-field" default-info))
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set hb2 (gtk-hbox-new false 5))
+                (cfg-setup-frame hb hb2 $"Field value")
+
+                (set w (gtk-color-button-new (cfg-get-or-default "bbcode-color-value" default-info)))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "cb-bbcode-value"> w)
+
+                (set w (gtk-check-button-new $"bold"))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "tb-bbcode-bold-value"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "bbcode-bold-value" default-info))
+
+                (set w (gtk-check-button-new $"underline"))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "tb-bbcode-underline-value"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "bbcode-underline-value" default-info)) )
+
+(defnet cfg-setup-notebook-page3 (nb default-info cfg-info)
+        (deflocal vb hb vb2 cb w a i)
+
+        (set vb (gtk-vbox-new false 5))
+        (skip (gtk-notebook-append-page nb vb (gtk-label-new $"Profiles")))
+        (gtk-container-set-border-width vb 6)
+
+        (set hb (gtk-hbox-new false 0))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set a (cfg-get "profiles"))
+                (set cb (gtk-combo-box-text-new))
+                (gtk-box-pack-start hb cb false false 0)
+                (set <cfg-info "cb-profiles"> cb)
+                (set <cfg-info "profiles"> a)
+                (gtk-signal-connect cb "changed" (netptr cfg-profile-changed) cb a cfg-info)
+
+                (set w (gtk-button-new))
+                (gtk-box-pack-end hb w false false 0)
+                (gtk-container-add w (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/document-revert-5.png")))
+                (gtk-signal-connect w "clicked" (netptr cfg-profile-restore) cb a cfg-info default-info)
+
+                (set w (gtk-button-new))
+                (gtk-box-pack-end hb w false false 0)
+                (set <cfg-info "btn-delete"> w)
+                (gtk-container-add w (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/edit-remove-2.png")))
+                (gtk-signal-connect w "clicked" (netptr cfg-profile-delete) cb a cfg-info)
+                (gtk-widget-set-sensitive w (> (length a) 1))
+
+                (set w (gtk-button-new))
+                (gtk-box-pack-end hb w false false 0)
+                (gtk-container-add w (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/edit-add-3.png")))
+                (gtk-signal-connect w "clicked" (netptr cfg-profile-add) cb a cfg-info)
+
+        (set hb (gtk-hbox-new false 0))
+        (gtk-box-pack-start vb hb false false 0)
+
+        (set vb2 (gtk-vbox-new false 5))
+        (gtk-box-pack-start hb vb2 false false 0)
+
+        (set hb (gtk-hbox-new true 5))
+        (gtk-box-pack-start vb2 hb false false 0)
+
+                (set w (gtk-spin-button-new-with-range 0 16384 1))
+                (set <cfg-info "sb-prf-width"> w)
+                (cfg-setup-frame-no-container hb w $"Width")
+                (gtk-spin-button-set-numeric w true)
+                (gtk-signal-connect w "value-changed" (netptr cfg-spin-changed) w cb a 1)
+
+                (set w (gtk-spin-button-new-with-range 0 16384 1))
+                (set <cfg-info "sb-prf-height"> w)
+                (cfg-setup-frame-no-container hb w $"Height")
+                (gtk-spin-button-set-numeric w true)
+                (gtk-signal-connect w "value-changed" (netptr cfg-spin-changed) w cb a 2)
+
+                (set w (gtk-spin-button-new-with-range 0 120 1))
+                (set <cfg-info "sb-prf-fps"> w)
+                (cfg-setup-frame-no-container hb w "Framerate")
+                (gtk-spin-button-set-numeric w true)
+                (gtk-signal-connect w "value-changed" (netptr cfg-spin-changed) w cb a 3)
+
+        (set hb (gtk-hbox-new true 5))
+        (gtk-box-pack-start vb2 hb false false 0)
+
+                (set w (gtk-spin-button-new-with-range 8192 67108864 1))
+                (set <cfg-info "sb-prf-size"> w)
+                (cfg-setup-frame-no-container hb w $"Buffer size")
+                (gtk-spin-button-set-numeric w true)
+                (gtk-signal-connect w "value-changed" (netptr cfg-spin-changed) w cb a 4)
+
+                (set w (gtk-spin-button-new-with-range 8192 67108864 1))
+                (set <cfg-info "sb-prf-init"> w)
+                (cfg-setup-frame-no-container hb w "Buffer init")
+                (gtk-spin-button-set-numeric w true)
+                (gtk-signal-connect w "value-changed" (netptr cfg-spin-changed) w cb a 5)
+
+                (set w (gtk-spin-button-new-with-range 8192 100000000 1))
+                (set <cfg-info "sb-prf-rate"> w)
+                (cfg-setup-frame-no-container hb w "Max rate")
+                (gtk-spin-button-set-numeric w true)
+                (gtk-signal-connect w "value-changed" (netptr cfg-spin-changed) w cb a 6)
+
+        (for i in a do
+                (gtk-combo-box-text-append-text cb <i 0>) )
+        (gtk-combo-box-set-active cb (cfg-get-or-default-num "profile" default-info)) )
+
+(defnet cfg-setup-notebook-page4 (nb default-info cfg-info)
+        (deflocal vb hb hb2 w)
+
+        (set vb (gtk-vbox-new false 5))
+        (skip (gtk-notebook-append-page nb vb (gtk-label-new "Switches")))
+        (gtk-container-set-border-width vb 6)
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w "Magic")
+                (set <cfg-info "tb-magic"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-magic" default-info))
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w "ID3 Tag")
+                (set <cfg-info "tb-id3tag"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-id3tag" default-info))
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w "EXIF")
+                (set <cfg-info "tb-exif"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-exif" default-info))
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w $"Profile compliancy")
+                (set <cfg-info "tb-profile-compliancy"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-profile-compliancy" default-info))
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w $"Comments")
+                (set <cfg-info "tb-comment"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-comment" default-info))
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w $"Attachments")
+                (set <cfg-info "tb-attachments"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-attachments" default-info))
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w $"Chapters")
+                (set <cfg-info "tb-chapters"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-chapters" default-info))
+                (gtk-signal-connect w "toggled" (netptr cfg-chapter-enabled-toggled) cfg-info)
+
+                (set w (gtk-check-button-new $"grouped"))
+                (cfg-setup-frame hb w "ChapterDisplay")
+                (set <cfg-info "tb-chapter-display-grouped"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "chapter-display-grouped" default-info))
+                (gtk-widget-set-sensitive w (cfg-get-or-default "enabled-chapters" default-info))
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w "x264 log")
+                (set <cfg-info "tb-log-x264"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-x264-log" default-info))
+
+                (set w (gtk-check-button-new $"grouped"))
+                (cfg-setup-frame hb w "User data")
+                (set <cfg-info "tb-user-data-grouped"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "user-data-grouped" default-info))
+
+                (set w (gtk-check-button-new "skip garbage"))
+                (cfg-setup-frame hb w $"Audio saving")
+                (set <cfg-info "tb-audio-saving-skip-garbage"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "audio-saving-skip-garbage" default-info))
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w "Debug infos")
+                (set <cfg-info "tb-debug"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-debug" default-info))
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w "UTF-8 BOM")
+                (set <cfg-info "tb-utf8bom"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-utf8bom" default-info))
+
+                (set w (gtk-check-button-new $"editable"))
+                (cfg-setup-frame hb w $"`Copy/paste' text")
+                (set <cfg-info "tb-text-info-editable"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "text-info-editable" default-info)) )
+
+(defnet cfg-setup-notebook-page5 (nb default-info cfg-info)
+        (deflocal vb hb hb2 w i)
+
+        (set vb (gtk-vbox-new false 5))
+        (skip (gtk-notebook-append-page nb vb (gtk-label-new "Misc")))
+        (gtk-container-set-border-width vb 6)
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set hb2 (gtk-hbox-new false 5))
+                (cfg-setup-frame hb hb2 $"Length of percent line")
+
+                        (set w (gtk-spin-button-new-with-range 5 100 1))
+                        (set <cfg-info "sb-percent-line-length"> w)
+                        (gtk-spin-button-set-value w (cfg-get-or-default-num "percent-line-length" default-info))
+                        (gtk-spin-button-set-numeric w true)
+                        (gtk-box-pack-start hb2 w false false 0)
+
+                        (set w (gtk-check-button-new $"normalize"))
+                        (set <cfg-info "tb-percent-line-normalize"> w)
+                        (gtk-toggle-button-set-active w (cfg-get-or-default "percent-line-normalize" default-info))
+                        (gtk-box-pack-start hb2 w false false 0)
+
+                (set w (gtk-spin-button-new-with-range 16 1024 1))
+                (cfg-setup-frame-no-container hb w "Hex dump")
+                (set <cfg-info "sb-hex-dump-max"> w)
+                (gtk-spin-button-set-value w (cfg-get-or-default-num "hex-dump-max" default-info))
+                (gtk-spin-button-set-numeric w true)
+
+                (set w (gtk-spin-button-new-with-range 0 40 1))
+                (cfg-setup-frame-no-container hb w $"Decimals")
+                (set <cfg-info "sb-decimals"> w)
+                (gtk-spin-button-set-value w (cfg-get-or-default-num "decimals" default-info))
+                (gtk-spin-button-set-numeric w true)
+
+        (set hb (gtk-hbox-new false 5))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set hb2 (gtk-hbox-new false 5))
+                (cfg-setup-frame hb hb2 $"Language")
+
+                (set w (gtk-combo-box-text-new))
+                (gtk-box-pack-start hb2 w false false 0)
+                (set <cfg-info "cb-languages"> w)
+
+                (for i in (languages) do
+                        (gtk-combo-box-text-append-text w i) )
+                (gtk-combo-box-set-active w (lang)) )
+
+(defnet cfg-setup-frame (box w title)
+        (deflocal frame)
+
+        (set frame (gtk-frame-new title))
+        (gtk-box-pack-start box frame false true 0)
+        (gtk-container-set-border-width w 6)
+        (gtk-container-add frame w) )
+
+(defnet cfg-setup-frame-no-container (box w title)
+        (deflocal hb)
+
+        (set hb (gtk-hbox-new false 0))
+        (gtk-box-pack-start hb w false false 0)
+        (cfg-setup-frame box hb title) )
+
+(defnet cfg-setup-buttons (info @w)
+        (deflocal btn)
+
+        (set @w (gtk-hbox-new false 6))
+
+        (gtk-box-pack-end @w (gtk-iconed-button
+                (pix-load-static "icons/16x16/dialog-cancel-3.png")
+                $"Cancel"
+                (netptr cfg-cancel)
+                info ) false false 0 )
+
+        (gtk-box-pack-end @w (gtk-iconed-button
+                (pix-load-static "icons/16x16/dialog-apply.png")
+                "Ok"
+                (netptr cfg-ok)
+                info ) false false 0 ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet cfg-profile-changed (cb a cfg-info)
+        (set a <a (gtk-combo-box-get-active cb)>)
+        (gtk-spin-button-set-value <cfg-info "sb-prf-width"> <a 1>)
+        (gtk-spin-button-set-value <cfg-info "sb-prf-height"> <a 2>)
+        (gtk-spin-button-set-value <cfg-info "sb-prf-fps"> <a 3>)
+        (gtk-spin-button-set-value <cfg-info "sb-prf-size"> <a 4>)
+        (gtk-spin-button-set-value <cfg-info "sb-prf-init"> <a 5>)
+        (gtk-spin-button-set-value <cfg-info "sb-prf-rate"> <a 6>) )
+
+(defnet cfg-spin-changed (sb cb a fieldno)
+        (set a <a (gtk-combo-box-get-active cb)>)
+        (set <a fieldno> (gtk-spin-button-get-value sb)) )
+
+(defnet cfg-profile-add (cb a cfg-info)
+        (deflocal l v)
+
+        (gtk-read-single-line <cfg-info "win"> 20 undef $"New profile:" l)
+        (for v in a do
+                (if (= l <v 0>)
+                then    (gtk-message-warning <cfg-info "win">
+                                (+ $"Profile `" l $"' exists." nl
+                                   $"Please select a different name." ))
+                        (fail) ))
+        (set v (array 7))
+        (array-append a v)
+        (gtk-combo-box-text-append-text cb l)
+        (set <v 0> l)
+        (set l <a (gtk-combo-box-get-active cb)>)
+        (set <v 1> <l 1>)
+        (set <v 2> <l 2>)
+        (set <v 3> <l 3>)
+        (set <v 4> <l 4>)
+        (set <v 5> <l 5>)
+        (set <v 6> <l 6>)
+        (set l (length a))
+        (gtk-combo-box-set-active cb (- l 1))
+        (if (= l 2)
+        then    (gtk-widget-set-sensitive <cfg-info "btn-delete"> true) ))
+
+(defnet cfg-profile-delete (cb a cfg-info)
+        (deflocal i)
+
+        (set i (gtk-combo-box-get-active cb))
+        (gtk-question <cfg-info "win">
+                (+ $"Profile `" <a i 0> $"' will be deleted." nl
+                   $"Are you sure?" ))
+        (array-remove a i)
+        (gtk-combo-box-text-remove cb i)
+        (if (= i (length a))
+        then    (set i (- i 1)) )
+        (gtk-combo-box-set-active cb i)
+        (if (= (length a) 1)
+        then    (gtk-widget-set-sensitive <cfg-info "btn-delete"> false) ))
+
+(defnet cfg-profile-restore (cb a cfg-info default-info)
+        (deflocal aa l i j d)
+
+        (gtk-question <cfg-info "win">
+                $"The predefined profiles will be reloaded.\nAre you sure?" )
+        (init-default-profiles aa)
+        (set i (length a))
+        (set l nil)
+        (while (> i 0) do
+                (inc i -1)
+                (set l (cons <a i> l))
+                (array-remove a i)
+                (gtk-combo-box-text-remove cb i) )
+        (for i in l do
+                (for j in aa do
+                        (set d (= <i 0> <j 0>))
+                        until d )
+                (if (not d)
+                then    (array-append aa i) ))
+        (for i in aa do
+                (array-append a i)
+                (gtk-combo-box-text-append-text cb <i 0>) )
+        (gtk-combo-box-set-active cb <default-info "profile">)
+        (gtk-widget-set-sensitive <cfg-info "btn-delete"> true) )
+
+(defnet cfg-chapter-enabled-toggled (cfg-info)
+        (gtk-widget-set-sensitive <cfg-info "tb-chapter-display-grouped">
+                (gtk-toggle-button-get-active <cfg-info "tb-chapters">) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet cfg-destroy (info)
+        (assoc-clr info "cfg-info")
+        (gui-update info) )
+
+(defnet cfg-cancel (info)
+        (close <info "cfg-info" "win">) )
+
+(defnet cfg-ok (info)
+        (deflocal cfg-info win)
+
+        (set cfg-info <info "cfg-info">)
+        (set win <cfg-info "win">)
+        (sqlite3-begin _db)
+        (alt    (seq    (cfg-ok-basic info cfg-info win)
+                        (sqlite3-end _db) )
+                (seq    (sqlite3-rollback _db)
+                        (gtk-message-error win "errore nel salvataggio configurazione") ))
+        (close win)
+        (gtk-flush)
+        (init-values info)
+        (dump info) )
+
+(defnet cfg-ok-basic (info cfg-info win)
+        (deflocal text c old-lang new-lang)
+
+        (set text <info "text">)
+        (set c (gtk-color-button-get-color <cfg-info "cb-background">))
+        (cfg-set "color-background" c)
+        (gtk-widget-modify-base text (cmacro GTK_STATE_NORMAL) c)
+        (cfg-set "color-section" (gtk-color-button-get-color <cfg-info "cb-section">))
+        (cfg-set "color-field" (gtk-color-button-get-color <cfg-info "cb-field">))
+        (cfg-set "color-value" (gtk-color-button-get-color <cfg-info "cb-value">))
+        (set c (gtk-font-button-get-font-name <cfg-info "fb">))
+        (cfg-set "font" c)
+        (gtk-widget-modify-font text c)
+        (cfg-set "length-field" (gtk-spin-button-get-value <cfg-info "sb-length-field">))
+        (cfg-set "length-divider" (gtk-spin-button-get-value <cfg-info "sb-length-divider">))
+        (cfg-set "length-value" (gtk-spin-button-get-value <cfg-info "sb-length-value">))
+        (cfg-set "tile-pattern" (gtk-entry-get-text <cfg-info "e-tile-pattern">))
+        (cfg-set "tile-left" (gtk-toggle-button-get-active <cfg-info "tb-tile-left">))
+        (cfg-set "indent-pattern" (gtk-entry-get-text <cfg-info "e-indent-pattern">))
+        (cfg-set "hex-dump-max" (gtk-spin-button-get-value <cfg-info "sb-hex-dump-max">))
+        (cfg-set "decimals" (gtk-spin-button-get-value <cfg-info "sb-decimals">))
+        (cfg-set "bbcode-color-section" (gtk-color-button-get-color <cfg-info "cb-bbcode-section">))
+        (cfg-set "bbcode-color-field" (gtk-color-button-get-color <cfg-info "cb-bbcode-field">))
+        (cfg-set "bbcode-color-value" (gtk-color-button-get-color <cfg-info "cb-bbcode-value">))
+        (cfg-set "bbcode-bold-section" (gtk-toggle-button-get-active <cfg-info "tb-bbcode-bold-section">))
+        (cfg-set "bbcode-underline-section" (gtk-toggle-button-get-active <cfg-info "tb-bbcode-underline-section">))
+        (cfg-set "bbcode-bold-field" (gtk-toggle-button-get-active <cfg-info "tb-bbcode-bold-field">))
+        (cfg-set "bbcode-underline-field" (gtk-toggle-button-get-active <cfg-info "tb-bbcode-underline-field">))
+        (cfg-set "bbcode-bold-value" (gtk-toggle-button-get-active <cfg-info "tb-bbcode-bold-value">))
+        (cfg-set "bbcode-underline-value" (gtk-toggle-button-get-active <cfg-info "tb-bbcode-underline-value">))
+        (cfg-set "enabled-magic" (gtk-toggle-button-get-active <cfg-info "tb-magic">))
+        (cfg-set "enabled-id3tag" (gtk-toggle-button-get-active <cfg-info "tb-id3tag">))
+        (cfg-set "enabled-exif" (gtk-toggle-button-get-active <cfg-info "tb-exif">))
+        (cfg-set "enabled-profile-compliancy" (gtk-toggle-button-get-active <cfg-info "tb-profile-compliancy">))
+        (cfg-set "enabled-comment" (gtk-toggle-button-get-active <cfg-info "tb-comment">))
+        (cfg-set "enabled-attachments" (gtk-toggle-button-get-active <cfg-info "tb-attachments">))
+        (cfg-set "enabled-chapters" (gtk-toggle-button-get-active <cfg-info "tb-chapters">))
+        (cfg-set "chapter-display-grouped" (gtk-toggle-button-get-active <cfg-info "tb-chapter-display-grouped">))
+        (cfg-set "enabled-x264-log" (gtk-toggle-button-get-active <cfg-info "tb-log-x264">))
+        (cfg-set "audio-saving-skip-garbage" (gtk-toggle-button-get-active <cfg-info "tb-audio-saving-skip-garbage">))
+        (cfg-set "enabled-debug" (gtk-toggle-button-get-active <cfg-info "tb-debug">))
+        (cfg-set "enabled-utf8bom" (gtk-toggle-button-get-active <cfg-info "tb-utf8bom">))
+        (cfg-set "text-info-editable" (gtk-toggle-button-get-active <cfg-info "tb-text-info-editable">))
+        (cfg-set "user-data-grouped" (gtk-toggle-button-get-active <cfg-info "tb-user-data-grouped">))
+        (cfg-set "percent-line-length" (gtk-spin-button-get-value <cfg-info "sb-percent-line-length">))
+        (cfg-set "percent-line-normalize" (gtk-toggle-button-get-active <cfg-info "tb-percent-line-normalize">))
+        (cfg-set "profiles" <cfg-info "profiles">)
+        (cfg-set "profile" (gtk-combo-box-get-active <cfg-info "cb-profiles">))
+        (set old-lang (lang))
+        (set new-lang (gtk-combo-box-get-active <cfg-info "cb-languages">))
+        (cfg-set "lang" new-lang)
+        (if (<> new-lang old-lang)
+        then    (set-lang new-lang)
+                (gtk-message-warning win $"Changing the language requires a restart to take effect.") ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

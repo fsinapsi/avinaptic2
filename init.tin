@@ -1,0 +1,282 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet init (@info)
+        (if (and (cmingw) (not (cli)))
+        then    (set-icon "icons/avinaptic.ico") )
+        (set @info (assoc))
+        (if (not (cli)) then (init-lang))
+        (init-parse-args @info)
+        (init-db @info)
+        (init-default @info)
+        (init-values @info)
+        (init-magic @info) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet init-lang ()
+        (deflocal lang)
+
+        (set lang (gtk-get-default-language))
+        (if (lmatch lang "it")
+        then    (set-lang 1) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet init-parse-args (info)
+        (deflocal i p path f)
+
+        (if (cli)
+        then    (set <info "cli-drf"> false)
+                (set <info "cli-type"> "file") )
+        (for i in 1 .. (- (argc) 1) do
+                (set p (argv i))
+                (alt    (lmatch p "-psn")       ; questa specie di opzione va ignorata
+                        (seq    (lmatch remove p "--cfg=")
+                                (set <info "cfg-path"> p) )
+                        (seq    (= (cli) true)
+                                (= p "--drf")
+                                (set <info "cli-drf"> true) )
+                        (seq    (= (cli) true)
+                                (= p "--bbcode")
+                                (in <info "cli-type"> [ "file" "bbcode" ])
+                                (set <info "cli-type"> "bbcode") )
+                        (seq    (= (cli) true)
+                                (= p "--html")
+                                (in <info "cli-type"> [ "file" "html" ])
+                                (set <info "cli-type"> "html") )
+                        (seq    (= (cli) true)
+                                (lmatch remove p "--out=")
+                                (set <info "cli-out-path"> p) )
+                        (seq    (= path undef)
+                                (set f (fopenro p))
+                                (<> f undef)
+                                (close f)
+                                (set path (realpath p)) )
+                        (seq    (gtk-message-error undef (+ (utf8-validate p) $": invalid option"))
+                                (exit -1) )))
+        (set <info "path"> path) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defglobal _db)
+
+(defnet init-db (info)
+        (deflocal path crea)
+
+        (set path <info "cfg-path">)
+        (if (= path undef)
+        then    (if (cmingw)
+                then    (set path (+ (cwd) "/avinaptic.cfg"))
+                else    (set path (+ (getenv "HOME") "/.treep"))
+                        (if (= path undef)
+                        then    (gtk-message-error undef $"please define the environment variable `HOME'")
+                                (exit -1) )
+                        (alt    (pathexists path)
+                                (mkdir path)
+                                (seq    (gtk-message-error undef (+ $"creation of directory `" (utf8-validate path) $"' failed"))
+                                        (exit -1) ))
+                        (set path (+ path "/avinaptic.cfg")) ))
+        (set crea (not (pathexists path)))
+        (set _db (sqlite3-open path))
+        (if (= _db undef)
+        then    (gtk-message-error undef (+ $"cannot open `" (utf8-validate path) "'"))
+                (exit -1) )
+        (alt    (not crea)
+                (seq    (sqlite3-exec _db undef
+                                "CREATE TABLE config(" \
+                                        "key char unique not null," \
+                                        "value char not null)" )
+                        (cfg-set "date-run-first" (now))
+                        (gtk-message-info undef (+ $"the settings file was saved as `" (utf8-validate path) "'")) )
+                (seq    (close _db)
+                        (remove path)
+                        (gtk-message-error undef $"creation of settings file failed")
+                        (exit -1) ))
+        (cfg-set "date-run-last" (now))
+        (cfg-inc "runs" 1)
+        (set-lang (cfg-get-lang)) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet init-default (info)
+        (deflocal default-info a)
+
+        (set default-info (assoc-default (init-default)))
+        (set <info "default"> default-info)
+        (if (= (cfg-get "profiles") undef)
+        then    (init-default-profiles a)
+                (cfg-set "profiles" a) ))
+
+(defun init-default ()
+        [ [ "length-field" . 26 ]
+          [ "length-divider" . 2 ]
+          [ "length-value" . 68 ]
+          [ "tile-pattern" . "" ]
+          [ "tile-left" . false ]
+          [ "indent-pattern" . "  " ]
+          [ "hex-dump-max" . 160 ]
+          [ "decimals" . 6 ]
+          [ "color-background" . (pix-color 0x4d 0x23 0x19) ]
+          [ "color-section" . (pix-color 0xff 0 0) ]
+          [ "color-field" . (pix-color 0xff 0xff 0) ]
+          [ "color-value" . (pix-color 0xff 0xff 0xff) ]
+          [ "font" . "Monospace 10" ]
+          [ "enabled-magic" . true ]
+          [ "enabled-id3tag" . true ]
+          [ "enabled-exif" . true ]
+          [ "enabled-attachments" . true ]
+          [ "enabled-chapters" . true ]
+          [ "chapter-display-grouped" . true ]
+          [ "enabled-comment" . false ]
+          [ "enabled-profile-compliancy" . true ]
+          [ "enabled-x264-log" . true ]
+          [ "enabled-debug" . false ]
+          [ "enabled-utf8bom" . true ]
+          [ "text-info-editable" . false ]
+          [ "audio-saving-skip-garbage" . false ]
+          [ "user-data-grouped" . true ]
+          [ "bbcode-color-section" . (pix-color 0x38 0xb6 0x0f) ]
+          [ "bbcode-color-field" . (pix-color 0x1c 0x4a 0x24) ]
+          [ "bbcode-color-value" . (pix-color 0x25 0x28 0xeb) ]
+          [ "bbcode-bold-section" . true ]
+          [ "bbcode-underline-section" . true ]
+          [ "bbcode-bold-field" . true ]
+          [ "bbcode-underline-field" . false ]
+          [ "bbcode-bold-value" . false ]
+          [ "bbcode-underline-value" . false ]
+          [ "percent-line-length" . 20 ]
+          [ "percent-line-normalize" . false ]
+          [ "profile" . 22 ]
+          ])
+
+(defnet init-default-profiles (@a)
+        (deflocal i j a)
+
+        (set @a (array (length (default-profiles)) (length (car (default-profiles)))))
+        (for i in (default-profiles) do
+                (set a <@a (for-pos)>)
+                (for j in i do
+                        (set <a (for-pos)> j) )))
+
+(defun default-profiles ()
+        ;   nome                            w    h fps    size     init     rate
+        [ [ "MPEG4 Simple @ L0"           176  144 15   163680   147312    64000 ]
+          [ "MPEG4 Simple @ L1"           176  144 15   163680   147312    64000 ]
+          [ "MPEG4 Simple @ L2"           352  288 15   654720   589248   128000 ]
+          [ "MPEG4 Simple @ L3"           352  288 30   654720   589248   384000 ]
+          [ "MPEG4 Simple @ L4a"          640  480 30  1309440  1178496  4000000 ]
+          [ "MPEG4 Simple @ L5"           720  576 30  1833216  1649894  8000000 ]
+          [ "MPEG4 Simple @ L6"          1280  720 30  4059264  3653338 12000000 ]
+          [ "MPEG4 Advanced Simple @ L0"  176  144 30   163680   147312   128000 ]
+          [ "MPEG4 Advanced Simple @ L1"  176  144 30   163680   147312   128000 ]
+          [ "MPEG4 Advanced Simple @ L2"  352  288 15   654720   589248   384000 ]
+          [ "MPEG4 Advanced Simple @ L3"  352  288 30   654720   589248   768000 ]
+          [ "MPEG4 Advanced Simple @ L4"  352  576 30  1309440  1178496  3000000 ]
+          [ "MPEG4 Advanced Simple @ L5"  720  576 30  1833216  1649894  8000000 ]
+          [ "DivX Handheld"               176  144 15   262144   196608   537600 ]
+          [ "DivX qMobile"                176  144 15   262144   196608   200000 ]
+          [ "DivX Mobile"                 320  240 30   655360   589824   600000 ]
+          [ "Xvid Mobile"                 320  240 30  1048576   943718  1334850 ]
+          [ "DivX Home Theater NTSC"      720  480 30  3145728  2359296  4854000 ]
+          [ "DivX Home Theater PAL"       720  576 25  3145728  2359296  4854000 ]
+          [ "MTK NTSC"                    720  480 30  3145728  2359296  4854000 ]
+          [ "MTK NTSC 6000"               720  480 30  4718592  3538944  7281300 ]
+          [ "MTK PAL"                     720  576 25  3145728  2359296  4854000 ]
+          [ "MTK PAL 6000"                720  576 25  4718592  3538944  7281300 ]
+          [ "DivX Portable NTSC"          352  240 30  3145728  2359296  4854000 ]
+          [ "DivX Portable PAL"           352  288 25  3145728  2359296  4854000 ]
+          [ "DivX 720HD"                 1280  720 30  6291456  4718592  9708400 ]
+          [ "Xvid HD 720"                1280  720 30  6291456  4718592  9708400 ]
+          [ "DivX 1080HD"                1920 1080 30 17170432 15453388 20000000 ]
+          [ "Xvid HD 1080"               1920 1080 30 16769024 15092122 20480000 ]
+          [ "Xbox"                        704    0 25   960000   864000  3500000 ] ])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet init-values (info)
+        (deflocal default-info)
+
+        (set default-info <info "default">)
+        (set <info "length-field"> (cfg-get-or-default-num "length-field" default-info))
+        (set <info "length-divider"> (cfg-get-or-default-num "length-divider" default-info))
+        (set <info "length-value"> (cfg-get-or-default-num "length-value" default-info))
+        (set <info "tile-pattern"> (cfg-get-or-default "tile-pattern" default-info))
+        (set <info "tile-left"> (cfg-get-or-default "tile-left" default-info))
+        (set <info "color-section"> (cfg-get-or-default "color-section" default-info))
+        (set <info "color-field"> (cfg-get-or-default "color-field" default-info))
+        (set <info "color-value"> (cfg-get-or-default "color-value" default-info)) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet init-magic (info)
+        (if (not (magic-available))
+        then    (if (cfg-get-or-default "enabled-magic" <info "default">)
+                then    (gtk-message-warning undef
+                                $"`libmagic' is not available (disable `Magic' to remove this message)" ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

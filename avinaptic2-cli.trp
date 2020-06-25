@@ -1,0 +1,91 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;(use cv)
+(use lept)
+
+(include "common.tin")
+(include "lang.tin")
+(include "utils.tin")
+(include "init.tin")
+(include "cfg.tin")
+(include "info.tin")
+(include "dump.tin")
+(include "parse.tin")
+(include "parse-avi.tin")
+(include "parse-asf.tin")
+(include "parse-mkv.tin")
+(include "parse-mp4.tin")
+(include "parse-ogg.tin")
+(include "parse-flv.tin")
+(include "parse-aud.tin")
+(include "parse-pix.tin")
+(include "parse-srt.tin")
+(include "parse-log.tin")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defstart avinaptic2-cli)
+
+(defun cli () true)
+
+(defnet usage ()
+        (print $"Usage" ": avinaptic2-cli [ " $"options" "... ] <path> [ " $"options" "... ]" nl
+                nl
+               $"options" ":" nl
+                "  --cfg=<cfg-path>" nl
+                "  --out=<out-path>" nl
+                "  --drf" nl
+                "  --bbcode" nl
+                "  --html" nl )
+        (exit -1) )
+
+(defnet avinaptic2-cli ()
+        (deflocal info out f s)
+
+        (init info)
+        (if (= <info "path"> undef)
+        then    (usage) )
+        (opt    (parse0 info <info "cli-drf">)
+                (dump-file1 info <info "cli-type"> s)
+                (if (cfg-get-or-default "enabled-utf8bom" <info "default">)
+                then    (if (<> (utf8-length s) (length s))
+                        then    (set s (+ (utf8-bom) s)) ))
+                (if (cms-windows)
+                then    (set s (find-and-replace s "\n" "\r\n")) )
+                (set out <info "cli-out-path">)
+                (if (= out undef)
+                then    (print s)
+                else    (set f (fcreate out))
+                        (if (= f undef)
+                        then    (print $"can't create file" " `" out "'" nl)
+                                (fail) )
+                        (fprint f s)
+                        (close f) ))
+        (close _db) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

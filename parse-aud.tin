@@ -1,0 +1,74 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-aud (info f)
+        (deflocal aud codec)
+
+        (set codec 0)
+        (repeat (not <info "aborted">)
+                (parse-aud-check info f aud codec)
+                until (audp aud)
+                (< codec 4)
+                (inc codec 2) )
+        (set <info "filetype"> "aud")
+        (set <info "fileinfo"> aud)
+        (set <info "audio"> 1)
+        (set <info "cleaner"> (netptr parse-aud-clean)) )
+
+(defnet parse-aud-clean (fileinfo)
+        (close fileinfo) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-aud-check (info f @aud codec)
+        (deflocal fpout)
+
+        (fsetpos 0 f)
+        (set @aud (aud-create f codec))
+        (set fpout <info "audio-fpout">)
+        (if (<> fpout undef)
+        then    (aud-fpout-begin @aud fpout
+                        (cfg-get-or-default "audio-saving-skip-garbage"
+                                <info "default"> ))
+                (fsetpos 0 fpout)
+                (set <info "audio-aud"> @aud) )
+        (opt*   (aud-parse @aud 131072)
+                (if (<> (aud-codec @aud) undef)
+                then    (parse-progress info f "aud" undef) ))
+        (if (or <info "aborted">
+                (= (aud-codec @aud) undef)
+                (>= (* 5 (+ (aud-initial-skip @aud)
+                            (aud-internal-skip @aud)
+                            (aud-buf-act @aud) ))
+                    (aud-tot-read @aud) ))
+        then    (close @aud)
+                (clr @aud)
+                (close <info "progress-win">)
+                (assoc-clr info "progress-win")
+                (assoc-clr info "progress-bar") ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

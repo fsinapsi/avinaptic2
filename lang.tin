@@ -1,0 +1,827 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun languages ()
+        [ "English"
+          "Italiano"
+        ])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deflang
+
+"subtitles"
+1
+"sottotitoli"
+
+"Close"
+1
+"Chiudi"
+
+"Cancel"
+1
+"Annulla"
+
+"Data input"
+1
+"Inserimento dati"
+
+"Bitstream type (bs)"
+1
+"Tipo di bitstream (bs)"
+
+"Duration (bs)"
+1
+"Durata"
+
+"Sampling frequency (bs)"
+1
+"Freq. campionamento (bs)"
+
+"Mode (bs)"
+1
+"Modo (bs)"
+
+"About file"
+1
+"Info sul file"
+
+"Name"
+1
+"Nome"
+
+"Date"
+1
+"Data"
+
+"Size"
+1
+"Dimensione"
+
+"Note"
+1
+"Nota"
+
+"Analysis not complete"
+1
+(iso->utf8 "L'analisi non è completa")
+
+"Analysis aborted"
+1
+(iso->utf8 "L'analisi è stata interrotta")
+
+"File type"
+1
+"Tipo file"
+
+"invalid utf8 string"
+1
+"stringa utf8 non valida"
+
+"This report was created by"
+1
+"Rapporto creato da"
+
+") on "
+1
+") in data "
+
+"About AVInaptic"
+1
+"Info su AVInaptic"
+
+"was coded in TreeP by"
+1
+(iso->utf8 "è stato scritto in TreeP da")
+
+"Selected language: "
+1
+"Lingua selezionata: "
+
+"Latest version: "
+1
+(iso->utf8 "Versione più recente: ")
+
+"Copy-and-paste"
+1
+"Copia e incolla"
+
+"Yes"
+1
+(iso->utf8 "Sì")
+
+"Generic infos"
+1
+"Info generiche"
+
+"Duration"
+1
+"Durata"
+
+"Container"
+1
+"Contenitore"
+
+"AVI has index"
+1
+"L'AVI ha un indice?"
+
+"Total tracks"
+1
+"Totale tracce"
+
+"Track nr. "
+1
+"Traccia n. "
+
+"Incomplete AVI sections"
+1
+"Sezioni AVI incomplete"
+
+"Creation time"
+1
+"Data di creazione"
+
+"Modification time"
+1
+"Data di modifica"
+
+"unknown type"
+1
+"tipo sconosciuto"
+
+"Image format"
+1
+"Formato"
+
+"Resolution"
+1
+"Risoluzione"
+
+"Luminance"
+1
+(iso->utf8 "Luminosità")
+
+"Contrast"
+1
+"Contrasto"
+
+"Relevant data"
+1
+"Dati rilevanti"
+
+"VERY HIGH"
+1
+"MOLTO ALTA"
+
+"HIGH"
+1
+"ALTA"
+
+"MEDIUM"
+1
+"MEDIA"
+
+"LOW"
+1
+"BASSA"
+
+"VERY LOW"
+1
+"MOLTO BASSA"
+
+"Width"
+1
+"Larghezza"
+
+"multiple of "
+1
+"multipla di "
+
+"GOOD"
+1
+"BENE"
+
+"16 would be better"
+1
+"sarebbe stato meglio 16"
+
+"BAD"
+1
+"MALE"
+
+"Height"
+1
+"Altezza"
+
+"Average DRF quality"
+1
+(iso->utf8 "Qualità DRF medio")
+
+"Average DRF"
+1
+"DRF medio"
+
+"Standard deviation quality"
+1
+(iso->utf8 "Qualità deviazione standard")
+
+"Standard deviation"
+1
+"Deviazione standard"
+
+"Std. dev. weighted mean"
+1
+"Media pesata dev. std."
+
+"Video track"
+1
+"Traccia video"
+
+"Resolution (bs)"
+1
+"Risoluzione (bs)"
+
+"Total frames"
+1
+"Totale frames"
+
+"Delay"
+1
+"Ritardo"
+
+"Audio track"
+1
+"Traccia audio"
+
+"Channels"
+1
+"Canali"
+
+"Sampling frequency"
+1
+"Freq. campionamento"
+
+"Output sampling frequency"
+1
+"Freq. campionamento output"
+
+"Sample size"
+1
+"Dimensione campioni"
+
+"Video bitstream"
+1
+"Bitstream video"
+
+"Bitstream type"
+1
+"Tipo di bitstream"
+
+"it seems like the video doesn't start with a keyframe"
+1
+"sembra che il video non inizi con un keyframe"
+
+"Error"
+1
+"Errore"
+
+"Corrupt frames"
+1
+"Frames corrotti"
+
+"Interlaced"
+1
+"Interlacciamento"
+
+"Entropy coding type"
+1
+"Tipo di codifica entropica"
+
+"DRF analysis"
+1
+"Analisi DRF"
+
+" (corrected)"
+1
+" (corretta)"
+
+"End of start credits time position"
+1
+"Fine titoli di testa"
+
+"ignored frames: "
+1
+"frames ignorati: "
+
+"End credits time position"
+1
+"Fine dei titoli di coda"
+
+"average DRF"
+1
+"DRF medio"
+
+"standard deviation"
+1
+"deviazione standard"
+
+" average DRF"
+1
+" DRF medio"
+
+" std. deviation"
+1
+" deviazione std."
+
+"Selected profile"
+1
+"Profilo selezionato"
+
+"Too many violations"
+1
+"Troppe violazioni"
+
+"Min buffer fill"
+1
+"Min riempimento buffer"
+
+"Stream size"
+1
+"Dimensione stream"
+
+"Profile compliancy"
+1
+(iso->utf8 "Conformità al profilo")
+
+"Max consecutive B-VOPs"
+1
+"Max B-VOPs consecutivi"
+
+"Used warp points"
+1
+"Warp points usati"
+
+"Description"
+1
+"Descrizione"
+
+"File name"
+1
+"Nome file"
+
+"Hidden"
+1
+"Nascosto"
+
+"Selected by default"
+1
+"Selezionato di default"
+
+"Chapters"
+1
+"Capitoli"
+
+"Chapter nr. "
+1
+"Capitolo n. "
+
+": file not found"
+1
+": file non trovato"
+
+"Analysis..."
+1
+"Analisi..."
+
+"Abort"
+1
+"Interrompi"
+
+"The current operation will be aborted.\nAre you sure?"
+1
+(iso->utf8 "L'operazione verrà interrotta.\nConfermi?")
+
+"Preferences"
+1
+"Preferenze"
+
+"General"
+1
+"Generale"
+
+"Font"
+1
+"Fonte caratteri"
+
+"Tile pattern"
+1
+"Schema riempimento"
+
+"right justified"
+1
+"giustificato a destra"
+
+"Field name"
+1
+"Nome campo"
+
+"Divider"
+1
+"Separatore"
+
+"Field value"
+1
+"Valore campo"
+
+"Indent pattern"
+1
+"Schema indentazione"
+
+"Section"
+1
+"Sezione"
+
+"underline"
+1
+"sottolineato"
+
+"bold"
+1
+"in grassetto"
+
+"Profiles"
+1
+"Profili"
+
+"Buffer size"
+1
+"Dimensione buffer"
+
+"enabled"
+1
+"abilitato"
+
+"Comments"
+1
+"Commenti"
+
+"Attachments"
+1
+"Allegati"
+
+"grouped"
+1
+"raggruppato"
+
+"Audio saving"
+1
+"Salvataggio audio"
+
+"editable"
+1
+"editabile"
+
+"`Copy/paste' text"
+1
+"Testo `copia e incolla'"
+
+"Length of percent line"
+1
+"Lunghezza linea percentuale"
+
+"normalize"
+1
+"normalizza"
+
+"Decimals"
+1
+"Decimali"
+
+"New profile:"
+1
+"Nuovo profilo:"
+
+"Profile `"
+1
+"Il profilo `"
+
+"' exists."
+1
+(iso->utf8 "' esiste già.")
+
+"Please select a different name."
+1
+"Scegli un nome differente."
+
+"' will be deleted."
+1
+(iso->utf8 "' verrà rimosso.")
+
+"Are you sure?"
+1
+"Confermi?"
+
+"The predefined profiles will be reloaded.\nAre you sure?"
+1
+"Verranno ripristinati i profili predefiniti.\nConfermi?"
+
+"Attached file"
+1
+"File allegato"
+
+" nr. "
+1
+" n. "
+
+"Copy"
+1
+"Copia"
+
+"Help"
+1
+"Aiuto"
+
+"Check for updates"
+1
+"Cerca aggiornamenti"
+
+"Background"
+1
+"Sfondo"
+
+"DRF graph"
+1
+"Grafico DRF"
+
+"Search"
+1
+"Cerca"
+
+"Frame size range"
+1
+"Interv. dimensione frame"
+
+"Frame type"
+1
+"Tipo di frame"
+
+"Any type"
+1
+"Qualsiasi"
+
+"Prev/Next"
+1
+"Prec/Succ"
+
+"Bottom graph"
+1
+"Grafico in basso"
+
+"Frame size"
+1
+"Dimensione frame"
+
+"VBV buffer"
+1
+"Buffer VBV"
+
+"Profile"
+1
+"Profilo"
+
+"compile time"
+1
+"a tempo di compilazione"
+
+"running time"
+1
+"a tempo di esecuzione"
+
+"Open file"
+1
+"Apri file"
+
+"Save the report"
+1
+"Salva il rapporto"
+
+"Save the report as..."
+1
+"Salva il rapporto come..."
+
+"Export (BBcode)..."
+1
+"Esporta (BBcode)..."
+
+"Export (HTML)..."
+1
+"Esporta (HTML)..."
+
+"Exit"
+1
+"Esci"
+
+"Report"
+1
+"Rapporto"
+
+"Save audio track as..."
+1
+"Salva traccia audio come..."
+
+"Save attachment as..."
+1
+"Salva allegato come..."
+
+"Save attachments in..."
+1
+"Salva tutti gli allegati in..."
+
+"Full analysis/DRF Graph"
+1
+"Analisi completa/Grafico DRF"
+
+"Set credits position"
+1
+"Imposta la posizione dei titoli"
+
+"open file"
+1
+"apri file"
+
+"save the report"
+1
+"salva il rapporto"
+
+"save the report as..."
+1
+"salva il rapporto come..."
+
+"full analysis/drf graph"
+1
+"analisi completa/grafico drf"
+
+"edit subtitles"
+1
+"edita sottotitoli"
+
+"preferences"
+1
+"preferenze"
+
+"Save as..."
+1
+"Salva come..."
+
+"File `"
+1
+"Il file `"
+
+"Do you want to overwrite it?"
+1
+"Vuoi sovrascriverlo?"
+
+"Report saved as `"
+1
+"Rapporto salvato come `"
+
+"The analysis failed"
+1
+(iso->utf8 "L'analisi è fallita")
+
+"Starting video frames to ignore:"
+1
+"Frames video iniziali da ignorare:"
+
+"Ending video frames to ignore:"
+1
+"Frames video finali da ignorare:"
+
+"Invalid data"
+1
+"Dati non validi"
+
+"can't create file"
+1
+"impossibile creare il file"
+
+"Audio track saved as `"
+1
+"Traccia audio salvata come `"
+
+"operation failed"
+1
+(iso->utf8 "l'operazione è fallita")
+
+"Attachment"
+1
+"Allegato"
+
+"Save"
+1
+"Salva"
+
+"Attachment saved as `"
+1
+"Allegato salvato come `"
+
+"Select destination folder"
+1
+"Seleziona la cartella di destinazione"
+
+"Attachment(s) saved in folder `"
+1
+"Allegati salvati nella cartella `"
+
+"Sorry, you have to wait "
+1
+"Devi aspettare "
+
+" seconds"
+1
+" secondi"
+
+"Language"
+1
+"Lingua"
+
+"Changing the language requires a restart to take effect."
+1
+"Per usufruire della modifica della lingua occorre far ripartire il programma."
+
+"this version: "
+1
+"questa versione: "
+
+"site version: "
+1
+"versione sul sito: "
+
+"please define the environment variable `HOME'"
+1
+"prova a definire la variabile di ambiente `HOME'"
+
+"creation of directory `"
+1
+"la creazione della cartella `"
+
+"' failed"
+1
+(iso->utf8 "' è fallita")
+
+"the settings file was saved as `"
+1
+(iso->utf8 "il file di configurazione è stato salvato come `")
+
+"creation of settings file failed"
+1
+(iso->utf8 "la creazione del file di configurazione è fallita")
+
+"cannot open `"
+1
+"impossibile aprire `"
+
+"`libmagic' is not available (disable `Magic' to remove this message)"
+1
+(iso->utf8 "`libmagic' non è disponibile (per rimuovere questo messaggio disabilita `Magic')")
+
+": invalid option"
+1
+": opzione non valida"
+
+"Usage"
+1
+"Uso"
+
+"options"
+1
+"opzioni"
+
+        )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

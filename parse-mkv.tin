@@ -1,0 +1,950 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mkv (info f)
+        (deflocal fileinfo complete a)
+
+        (not <info "aborted">)
+        (parse-mkv-check f)
+        (fsetpos 0 f)
+        (set fileinfo (assoc-default (parse-mkv-default)))
+        (set <fileinfo "Attachments"> (queue))
+        (set <fileinfo "Editions"> (queue))
+        (set <fileinfo "Tags"> (queue))
+        (set <fileinfo "unknown-ids"> (queue))
+        (set <fileinfo "tracks"> (assoc))
+        (set <fileinfo "main-info"> info)
+        (set complete <info "complete">)
+        (parse-ebml fileinfo f <info "filesize"> undef "root" -1 complete <info "audio-demux"> a)
+        (in <fileinfo "DocType"> [ "matroska" "webm" ])
+        (in "Segment->read" fileinfo)
+        (parse-mkv-post-check fileinfo)
+        (assoc-clr fileinfo "Segment->read")
+        (assoc-clr fileinfo "SegmentInfo->read")
+        (assoc-clr fileinfo "Tracks->read")
+        (assoc-clr fileinfo "Chapters->read")
+        (assoc-clr fileinfo "Tags->read")
+        (assoc-clr fileinfo "main-info")
+        (set <info "filetype"> "mkv")
+        (set <info "fileinfo"> fileinfo)
+        (set <info "video"> <fileinfo "video">)
+        (set <info "audio"> <fileinfo "audio">)
+        (set <info "cleaner"> (netptr parse-mkv-clean)) )
+
+(defnet parse-mkv-clean (fileinfo)
+        (deflocal track i j)
+
+        (for track in <fileinfo "tracks-array"> do
+                (set track (cdr track))
+                (close <track "low" 0>)
+                (for i in <track "ContentEncodings"> do
+                        (set j <(cdr i) "ContentCompSettings">)
+                        (if (rawp j)
+                        then    (close j) ))))
+
+(defnet parse-mkv-post-check (fileinfo)
+        (deflocal track a vid)
+
+        (for track in <fileinfo "tracks-array"> do
+                (set a <(cdr track) "low">)
+                (set vid <a 0>)
+                (if (vidp vid)
+                then    (if (< (vid-bitstream-type vid) 1)
+                        then    (close vid)
+                                (set <a 0> undef) ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun parse-mkv-default ()
+        [ [ "EBMLVersion" . 1 ]
+          [ "EBMLReadVersion" . 1 ]
+          [ "EBMLMaxIdLength" . 4 ]
+          [ "EBMLMaxSizeLength" . 8 ]
+          [ "DocType" . "matroska" ]
+          [ "DocTypeVersion" . 1 ]
+          [ "DocTypeReadVersion" . 1 ]
+          [ "TimeCodeScale" . 1000000 ]
+          [ "multisegment" . false ]
+          [ "video" . 0 ]
+          [ "audio" . 0 ]
+          [ "complex" . 0 ]
+          [ "logo" . 0 ]
+          [ "subtitle" . 0 ]
+          [ "button" . 0 ]
+          [ "control" . 0 ]
+        ] )
+
+(defun parse-mkv-track-default ()
+        [ [ "FlagEnabled" . true ]
+          [ "FlagDefault" . true ]
+          [ "FlagForced" . false ]
+          [ "FlagLacing" . false ]
+          [ "MinCache" . 0 ]
+          [ "Language" . "eng" ]
+          [ "PixelCropBottom" . 0 ]
+          [ "PixelCropTop" . 0 ]
+          [ "PixelCropLeft" . 0 ]
+          [ "PixelCropRight" . 0 ]
+          [ "DisplayUnit" . 0 ]
+          [ "SamplingFrequency" . 8000 ]
+          [ "Channels" . 1 ]
+        ] )
+
+(defun parse-mkv-content-encoding-default ()
+        [ [ "ContentEncodingOrder" . 0 ]
+          [ "ContentEncodingScope" . 1 ]
+          [ "ContentEncodingType" . 0 ]
+          [ "ContentCompAlgo" . 0 ]
+        ] )
+
+(defun parse-mkv-edition-entry-default ()
+        [ [ "EditionFlagHidden" . false ]
+          [ "EditionFlagDefault" . false ]
+          [ "EditionFlagOrdered" . false ]
+        ] )
+
+(defun parse-mkv-chapter-default ()
+        [ [ "ChapterTimeStart" . 0 ]
+          [ "ChapterFlagHidden" . false ]
+          [ "ChapterFlagEnabled" . true ]
+        ] )
+
+(defun parse-mkv-chapter-display-default ()
+        [ [ "ChapLanguage" . "eng" ]
+        ] )
+
+(defun parse-mkv-simpletag-default ()
+        [ [ "TagLanguage" . "und" ]
+          [ "TagOriginal" . true ]
+        ] )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun vint (f) net vint)
+(defun svint (f) net svint)
+(defun vint2 (f) net vint2)
+
+(defnet vint-basic (f @v @len)
+        (deflocal l m z)
+
+        (set @v (freadchar f))
+        (<> @v undef)
+        (set @v (length @v))
+        (> @v 0)
+        (set @len 0)
+        (set m 0x80)
+        (set z @v)
+        (while (< z 0x80) do
+                (set z (+ (* z 2) 1))
+                (set m (div m 2))
+                (inc @len) )
+        (inc @v -m)
+        (set z (= z 0xff))
+        (for l in 1 .. @len do
+                (set m (freadchar f))
+                (<> m undef)
+                (set m (length m))
+                (set @v (+ (* @v 0x100) m))
+                (set z (and z (= m 0xff))) )
+        (if z then (clr @v)) )
+
+(defnet svint-basic (f @v @len)
+        (vint-basic f @v @len)
+        (inc @v <[ -0x3f -0x1fff -0xfffff -0x7ffffff
+                            -0x3ffffffff -0x1ffffffffff
+                            -0xffffffffffff -0x7fffffffffffff ] @len>) )
+
+(defnet vint2-basic (f @v @len)
+        (deflocal l m z)
+
+        (set @v (freadchar f))
+        (<> @v undef)
+        (set @v (length @v))
+        (> @v 0)
+        (set @len 0)
+        (set m 0x80)
+        (set z @v)
+        (while (< z 0x80) do
+                (set z (+ (* z 2) 1))
+                (set m (div m 2))
+                (inc @len) )
+        (set z (= z 0xff))
+        (for l in 1 .. @len do
+                (set m (freadchar f))
+                (<> m undef)
+                (set m (length m))
+                (set @v (+ (* @v 0x100) m))
+                (set z (and z (= m 0xff))) )
+        (if z then (clr @v)) )
+
+(defnet vint (f @v)
+        (deflocal len)
+        (vint-basic f @v len) )
+
+(defnet svint (f @v)
+        (deflocal len)
+        (svint-basic f @v len) )
+
+(defnet vint2 (f @v)
+        (deflocal len)
+        (vint2-basic f @v len) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mkv-str (fileinfo f size field)
+        (deflocal v)
+
+        (set v (utf8-validate (freadstr f size)))
+        (if (<> v undef)
+        then    (set <fileinfo field> v) ))
+
+(defnet parse-mkv-uint (fileinfo f size field)
+        (deflocal v)
+
+        (set v (freaduint-be f (* size 8)))
+        (if (<> v undef)
+        then    (set <fileinfo field> v) ))
+
+(defnet parse-mkv-sint (fileinfo f size field)
+        (deflocal v)
+
+        (set v (freadsint-be f (* size 8)))
+        (if (<> v undef)
+        then    (set <fileinfo field> v) ))
+
+(defnet parse-mkv-bool (fileinfo f size field)
+        (deflocal v)
+
+        (set v (= (freaduint-be f (* size 8)) 1))
+        (if (<> v undef)
+        then    (set <fileinfo field> v) ))
+
+(defnet parse-mkv-float (fileinfo f size field)
+        (deflocal v)
+
+        (set v (freadfloat-be f (* size 8)))
+        (if (<> v undef)
+        then    (set <fileinfo field> v) ))
+
+(defnet parse-mkv-date (fileinfo f size field)
+        (deflocal v)
+
+        (set v (+ (date 2001 1 1 0 0 0 0 0)
+                  (/ (freadsint-be f (* size 8)) 1000000000) ))
+        (if (<> v undef)
+        then    (set <fileinfo field> v) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mkv-check (f)
+        (fsetpos 0 f)
+        (in (vint2 f) [ 0x1a45dfa3 0x18538067 ]) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-ebml (fileinfo f endpos up-id lab-val level @complete a-demux @arr)
+        (deflocal id size actpos newpos)
+
+        (inc level)
+        (opt*   (set id (vint2 f))
+                (set size (vint f))
+                (set actpos (fpos f))
+                (if (not (integerp size))
+                then    (set size (- endpos actpos))
+                        (>= size 0) )
+                (set newpos (+ actpos size))
+                (if (> newpos endpos)
+                then    ; warning...
+                        (set newpos endpos)
+                        (set size (max 0 (- newpos actpos))) )
+
+                (if (= (% (+ 1 <@arr 0>) (if (= a-demux undef) 300 1800)) 0)
+                then    (parse-progress <fileinfo "main-info"> f "mkv" undef) )
+
+                (case id of
+                        0xec    (skip) ; void
+                        0xbf    (skip) ; crc32
+                        default (case level of
+                                        0       (parse-ebml-level0 fileinfo f size newpos id up-id @complete a-demux @arr)
+                                        1       (parse-ebml-level1 fileinfo f size newpos id up-id @complete a-demux @arr)
+                                        2       (parse-ebml-level2 fileinfo f size newpos id up-id @complete a-demux @arr)
+                                        3       (parse-ebml-level3 fileinfo f size newpos id up-id @complete a-demux @arr)
+                                        4       (parse-ebml-level4 fileinfo f size newpos id up-id @complete a-demux @arr)
+                                        5       (parse-ebml-level5 fileinfo f size newpos id up-id @complete a-demux @arr)
+                                        6       (parse-ebml-level6 fileinfo f size newpos id up-id @complete a-demux @arr) ))
+                (or @complete (= @arr undef) (< <@arr 0> (parse-video-frame-min)))
+                (< newpos endpos)
+                (alt    (fsetpos newpos f)
+                        (seq    (gtk-message-error <fileinfo "main-info" "win">
+                                        (+ "file seek at " newpos " failed!") )
+                                (fail) ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-ebml-level0 (fileinfo f size endpos id up-id @complete a-demux @arr)
+        (case id of
+                0x1a45dfa3      (parse-ebml fileinfo f endpos id "EBML" 0 @complete a-demux @arr)
+                0x18538067      (if (in "Segment->read" fileinfo)
+                                then    (set <fileinfo "multisegment"> true)
+                                else    (assoc-inc fileinfo "Segment->read")
+                                        (parse-ebml fileinfo f endpos id "Segment" 0 @complete a-demux @arr)
+                                        (parse-mkv-segment-end fileinfo f @arr) )
+                default         (assoc-queue-unique fileinfo "unknown-ids"
+                                        (list id up-id 0) )))
+
+(defnet parse-ebml-level1 (fileinfo f size endpos id up-id @complete a-demux @arr)
+        (case up-id of
+                0x1a45dfa3      ; ebml header
+                                (case id of
+                                        0x4286          (parse-mkv-uint fileinfo f size "EBMLVersion")
+                                        0x42f7          (parse-mkv-uint fileinfo f size "EBMLReadVersion")
+                                        0x42f2          (parse-mkv-uint fileinfo f size "EBMLMaxIdLength")
+                                        0x42f3          (parse-mkv-uint fileinfo f size "EBMLMaxSizeLength")
+                                        0x4282          (parse-mkv-str fileinfo f size "DocType")
+                                        0x4287          (parse-mkv-uint fileinfo f size "DocTypeVersion")
+                                        0x4285          (parse-mkv-uint fileinfo f size "DocTypeReadVersion")
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 1) ))
+                0x18538067      ; segment
+                                (case id of
+                                        0x1549a966      (if (not (in "SegmentInfo->read" fileinfo))
+                                                        then    (assoc-inc fileinfo "SegmentInfo->read")
+                                                                (parse-ebml fileinfo f endpos id "SegmentInfo" 1 @complete a-demux @arr) )
+                                        0x114d9b74      (skip) ; SeekHead
+                                        0x1654ae6b      (if (not (in "Tracks->read" fileinfo))
+                                                        then    (assoc-inc fileinfo "Tracks->read")
+                                                                (parse-ebml fileinfo f endpos id "Tracks" 1 @complete a-demux @arr)
+                                                                (parse-mkv-tracks-end fileinfo f a-demux @arr) )
+                                        0x1f43b675      (parse-ebml fileinfo f endpos id "Cluster" 1 @complete a-demux @arr)
+                                        0x1c53bb6b      (skip) ; Cues
+                                        0x1941a469      (parse-ebml fileinfo f endpos id "Attachments" 1 @complete a-demux @arr)
+                                        0x1043a770      (if (not (in "Chapters->read" fileinfo))
+                                                        then    (assoc-inc fileinfo "Chapters->read")
+                                                                (parse-ebml fileinfo f endpos id "Chapters" 1 @complete a-demux @arr) )
+                                        0x1254c367      (skip)
+                                                        ;(if (not (in "Tags->read" fileinfo))
+                                                        ;then    (assoc-inc fileinfo "Tags->read")
+                                                        ;        (parse-ebml fileinfo f endpos id "Tags" 1 @complete a-demux @arr) )
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 1) ))))
+
+(defnet parse-ebml-level2 (fileinfo f size endpos id up-id @complete a-demux @arr)
+        (case up-id of
+                0x1549a966      ; segmentinfo
+                                (case id of
+                                        0x73a4          (parse-mkv-uint fileinfo f size "SegmentUID")
+                                        0x7384          (parse-mkv-str fileinfo f size "SegmentFilename")
+                                        0x3cb923        (parse-mkv-uint fileinfo f size "PrevUID")
+                                        0x3c83ab        (parse-mkv-str fileinfo f size "PrevFilename")
+                                        0x3eb923        (parse-mkv-uint fileinfo f size "NextUID")
+                                        0x3e83bb        (parse-mkv-str fileinfo f size "NextFilename")
+                                        0x2ad7b1        (parse-mkv-uint fileinfo f size "TimeCodeScale")
+                                        0x4489          (parse-mkv-float fileinfo f size "Duration")
+                                        0x7ba9          (parse-mkv-str fileinfo f size "Title")
+                                        0x4d80          (parse-mkv-str fileinfo f size "MuxingApp")
+                                        0x5741          (parse-mkv-str fileinfo f size "WritingApp")
+                                        0x4461          (parse-mkv-date fileinfo f size "DateUTC")
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 2) ))
+                0x1654ae6b      ; tracks
+                                (case id of
+                                        0xae            (seq    (parse-mkv-track-begin fileinfo)
+                                                                (parse-ebml fileinfo f endpos id "TrackEntry" 2 @complete a-demux @arr)
+                                                                (parse-mkv-track-end fileinfo) )
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 2) ))
+                0x1f43b675      ; cluster
+                                (case id of
+                                        0xe7            (skip);(parse-mkv-uint fileinfo f size "TimeCode")
+                                        0xa7            (skip);(parse-mkv-uint fileinfo f size "Position")
+                                        0xab            (skip);(parse-mkv-uint fileinfo f size "PrevSize")
+                                        0xa0            (parse-ebml fileinfo f endpos id "BlockGroup" 2 @complete a-demux @arr)
+                                        0xa3            (parse-mkv-block fileinfo f size a-demux @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 2) ))
+                0x1941a469      ; attachments
+                                (case id of
+                                        0x61a7          (if (= a-demux undef)
+                                                        then    (set <fileinfo "attachment"> (assoc))
+                                                                (parse-ebml fileinfo f endpos id "AttachedFile" 2 @complete a-demux @arr)
+                                                                (queue-put <fileinfo "Attachments"> <fileinfo "attachment">)
+                                                                (assoc-clr fileinfo "attachment") )
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 2) ))
+                0x1043a770      ; chapters
+                                (case id of
+                                        0x45b9          (if (= a-demux undef)
+                                                        then    (parse-mkv-edition-entry fileinfo f endpos @complete @arr) )
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 2) ))
+                0x1254c367      ; tags
+                                (case id of
+                                        0x7373          (if (= a-demux undef)
+                                                        then    (parse-mkv-tag fileinfo f endpos @complete @arr) )
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 2) ))))
+
+(defnet parse-ebml-level3 (fileinfo f size endpos id up-id @complete a-demux @arr)
+        (case up-id of
+                0xae            ; trackentry
+                                (case id of
+                                        0xd7            (parse-mkv-uint <fileinfo "track"> f size "TrackNumber")
+                                        0x73c5          (parse-mkv-uint <fileinfo "track"> f size "TrackUID")
+                                        0x83            (parse-mkv-track-type fileinfo f size)
+                                        0xb9            (parse-mkv-bool <fileinfo "track"> f size "FlagEnabled")
+                                        0x88            (parse-mkv-bool <fileinfo "track"> f size "FlagDefault")
+                                        0x55aa          (parse-mkv-bool <fileinfo "track"> f size "FlagForced")
+                                        0x9c            (parse-mkv-bool <fileinfo "track"> f size "FlagLacing")
+                                        0x6de7          (parse-mkv-uint <fileinfo "track"> f size "MinCache")
+                                        0x6df8          (parse-mkv-uint <fileinfo "track"> f size "MaxCache")
+                                        0x23e383        (parse-mkv-uint <fileinfo "track"> f size "DefaultDuration")
+                                        0x23314f        (parse-mkv-float <fileinfo "track"> f size "TrackTimeCodeScale")
+                                        0x536e          (parse-mkv-str <fileinfo "track"> f size "Name")
+                                        0x22b59c        (parse-mkv-str <fileinfo "track"> f size "Language")
+                                        0x86            (parse-mkv-str <fileinfo "track"> f size "CodecID")
+                                        0x63a2          (set <fileinfo "track" "CodecPrivate"> (cons (fpos f) size))
+                                        0x258688        (parse-mkv-str <fileinfo "track"> f size "CodecName")
+                                        0x7446          (parse-mkv-uint <fileinfo "track"> f size "AttachmentLink")
+                                        0xe0            (parse-ebml fileinfo f endpos id "VideoInfo" 3 @complete a-demux @arr)
+                                        0xe1            (parse-ebml fileinfo f endpos id "AudioInfo" 3 @complete a-demux @arr)
+                                        0x6d80          (parse-ebml fileinfo f endpos id "ContentEncodings" 3 @complete a-demux @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 3) ))
+                0xa0            ; blockgroup
+                                (case id of
+                                        0xa1            (parse-mkv-block fileinfo f size a-demux @arr)
+                                        0xfb            (skip);(parse-mkv-uint fileinfo f size "ReferenceBlock")
+                                        0x9b            (skip);(parse-mkv-uint fileinfo f size "BlockDuration")
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 3) ))
+                0x61a7          ; attachedfile
+                                (case id of
+                                        0x467e          (parse-mkv-str <fileinfo "attachment"> f size "FileDescription")
+                                        0x466e          (parse-mkv-str <fileinfo "attachment"> f size "FileName")
+                                        0x4660          (parse-mkv-str <fileinfo "attachment"> f size "FileMimeType")
+                                        0x465c          (set <fileinfo "attachment" "FileData"> (cons (fpos f) size))
+                                        0x46ae          (parse-mkv-uint <fileinfo "attachment"> f size "FileUID")
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 3) ))
+                0x45b9          ; editionentry
+                                (case id of
+                                        0x45bc          (parse-mkv-uint <fileinfo "edition-values"> f size "EditionUID")
+                                        0x45bd          (parse-mkv-bool <fileinfo "edition-values"> f size "EditionFlagHidden")
+                                        0x45db          (parse-mkv-bool <fileinfo "edition-values"> f size "EditionFlagDefault")
+                                        0x45dd          (parse-mkv-bool <fileinfo "edition-values"> f size "EditionFlagOrdered")
+                                        0xb6            (parse-mkv-chapter-atom fileinfo f endpos @complete @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 3) ))
+                0x7373          ; tag
+                                (case id of
+                                        0x63c0          (parse-mkv-tag-targets fileinfo f endpos @complete @arr)
+                                        0x67c8          (parse-mkv-tag-simpletag fileinfo f endpos @complete @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 3) ))))
+
+(defnet parse-ebml-level4 (fileinfo f size endpos id up-id @complete a-demux @arr)
+        (case up-id of
+                0xe0            ; videoinfo
+                                (case id of
+                                        0xb0            (parse-mkv-uint <fileinfo "track"> f size "PixelWidth")
+                                        0xba            (parse-mkv-uint <fileinfo "track"> f size "PixelHeight")
+                                        0x54aa          (parse-mkv-uint <fileinfo "track"> f size "PixelCropBottom")
+                                        0x54bb          (parse-mkv-uint <fileinfo "track"> f size "PixelCropTop")
+                                        0x54cc          (parse-mkv-uint <fileinfo "track"> f size "PixelCropLeft")
+                                        0x54dd          (parse-mkv-uint <fileinfo "track"> f size "PixelCropRight")
+                                        0x54b0          (parse-mkv-uint <fileinfo "track"> f size "DisplayWidth")
+                                        0x54ba          (parse-mkv-uint <fileinfo "track"> f size "DisplayHeight")
+                                        0x54b2          (parse-mkv-uint <fileinfo "track"> f size "DisplayUnit")
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 4) ))
+                0xe1            ; audioinfo
+                                (case id of
+                                        0xb5            (parse-mkv-float <fileinfo "track"> f size "SamplingFrequency")
+                                        0x78b5          (parse-mkv-float <fileinfo "track"> f size "OutputSamplingFrequency")
+                                        0x9f            (parse-mkv-uint <fileinfo "track"> f size "Channels")
+                                        0x6264          (parse-mkv-uint <fileinfo "track"> f size "BitDepth")
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 4) ))
+                0x6d80          ; contentencodings
+                                (case id of
+                                        0x6240          (seq    (set <fileinfo "contentencoding"
+> (assoc-default (parse-mkv-content-encoding-default)) )
+                                                                (parse-ebml fileinfo f endpos id "ContentEncoding" 4 @complete a-demux @arr)
+                                                                (queue-put <fileinfo "track" "ContentEncodings">
+                                                                        <fileinfo "contentencoding"> ))
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 4) ))
+                0xb6            ; chapteratom
+                                (case id of
+                                        0xb6            (parse-mkv-chapter-atom fileinfo f endpos @complete @arr)
+                                        0x73c4          (parse-mkv-uint <fileinfo "chapter"> f size "ChapterUID")
+                                        0x91            (parse-mkv-uint <fileinfo "chapter"> f size "ChapterTimeStart")
+                                        0x92            (parse-mkv-uint <fileinfo "chapter"> f size "ChapterTimeEnd")
+                                        0x98            (parse-mkv-bool <fileinfo "chapter"> f size "ChapterFlagHidden")
+                                        0x4598          (parse-mkv-bool <fileinfo "chapter"> f size "ChapterFlagEnabled")
+                                        0x6e67          (skip);chapter segment uid
+                                        0x6ebc          (skip);chapter segment edition uid
+                                        0x8f            (parse-ebml fileinfo f endpos id "ChapterTracks" 4 @complete a-demux @arr)
+                                        0x80            (parse-mkv-chapter-display fileinfo f endpos @complete @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 4) ))
+                0x63c0          ; targets
+                                (case id of
+                                        0x68ca          (skip)
+                                        0x63ca          (skip)
+                                        0x63c5          (skip)
+                                        0x63c9          (skip)
+                                        0x63c4          (skip)
+                                        0x63c6          (skip)
+                                        0x67c8          ; hack per trattare il caso di tag a dimensione nulla...
+                                                        (parse-mkv-tag-simpletag fileinfo f endpos @complete @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 4) ))
+                0x67c8          ; simpletag
+                                (case id of
+                                        0x45a3          (parse-mkv-str <fileinfo "simpletag"> f size "TagName")
+                                        0x447a          (parse-mkv-str <fileinfo "simpletag"> f size "TagLanguage")
+                                        0x4484          (parse-mkv-bool <fileinfo "simpletag"> f size "TagOriginal")
+                                        0x4487          (parse-mkv-str <fileinfo "simpletag"> f size "TagString")
+                                        0x4485          (skip) ; FIXME
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 4) ))))
+
+(defnet parse-ebml-level5 (fileinfo f size endpos id up-id @complete a-demux @arr)
+        (case up-id of
+                0x6240          ; contentencoding
+                                (case id of
+                                        0x5031          (parse-mkv-uint <fileinfo "contentencoding"> f size "ContentEncodingOrder")
+                                        0x5032          (parse-mkv-uint <fileinfo "contentencoding"> f size "ContentEncodingScope")
+                                        0x5033          (parse-mkv-uint <fileinfo "contentencoding"> f size "ContentEncodingType")
+                                        0x5034          (parse-ebml fileinfo f endpos id "ContentCompression" 5 @complete a-demux @arr)
+                                        0x5035          (parse-ebml fileinfo f endpos id "ContentEncryption" 5 @complete a-demux @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 5) ))
+                0x8f            ; chaptertracks
+                                (case id of
+                                        0x89            (parse-mkv-chapter-track-number fileinfo f size)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 5) ))
+                0x80            ; chapterdisplay
+                                (case id of
+                                        0x85            (parse-mkv-str <fileinfo "chapterdisplay"> f size "ChapString")
+                                        0x437c          (parse-mkv-str <fileinfo "chapterdisplay"> f size "ChapLanguage")
+                                        0x437e          (parse-mkv-str <fileinfo "chapterdisplay"> f size "ChapCountry")
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 5) ))))
+
+(defnet parse-ebml-level6 (fileinfo f size endpos id up-id @complete a-demux @arr)
+        (case up-id of
+                0x5034          ; contentcompression
+                                (case id of
+                                        0x4254          (parse-mkv-uint <fileinfo "contentencoding"> f size "ContentCompAlgo")
+                                        0x4255          (parse-mkv-content-comp-settings fileinfo f size)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 6) ))
+                0x5035          ; contentencryption
+                                (case id of
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list id up-id 6) ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mkv-track-begin (fileinfo)
+        (deflocal a)
+
+        (set a (assoc-default (parse-mkv-track-default)))
+        (set <a "ContentEncodings"> (queue))
+        (set <fileinfo "track"> a) )
+
+(defnet parse-mkv-track-end (fileinfo)
+        (deflocal track q a i)
+
+        (set track <fileinfo "track">)
+        (set i <track "TrackNumber">)
+        (<> i undef)
+        (assoc-clr track "TrackNumber")
+        (set <fileinfo "tracks" i> track)
+        (set i <track "DisplayWidth">)
+        (if (or (= i undef) (= i 0))
+        then    (set <track "DisplayWidth"> <track "PixelWidth">) )
+        (set i <track "DisplayHeight">)
+        (if (or (= i undef) (= i 0))
+        then    (set <track "DisplayHeight"> <track "PixelHeight">) )
+        (set i <track "OutputSamplingFrequency">)
+        (if (= i undef)
+        then    (set <track "OutputSamplingFrequency"> <track "SamplingFrequency">) )
+        (set q <track "ContentEncodings">)
+        (set a (array (length q)))
+        (for i in q do
+                (set <a (for-pos)> (cons <i "ContentEncodingOrder"> i))
+                (assoc-clr i "ContentEncodingOrder") )
+        (sort a (funptr greater0))
+        (set <track "ContentEncodings"> a)
+        (set i <track "DefaultDuration">)
+        (if (and (<> i undef) (> i 0))
+        then    (set <track "Framerate"> (/ 1000000000 i)) ))
+
+(defnet parse-mkv-track-type (fileinfo f size)
+        (deflocal track track-type)
+
+        (set track-type (parse-mkv-track-type (parse-mkv-track-type-l) (freaduint-be f (* size 8))))
+        (if (<> track-type undef)
+        then    (set <fileinfo "track" "TrackType"> track-type)
+                (assoc-inc fileinfo track-type) ))
+
+(defun parse-mkv-track-type (l v)
+        (if (= l nil) undef
+                (if (= (car (car l)) v) (cdr (car l))
+                        (parse-mkv-track-type (cdr l) v) )))
+
+(defun parse-mkv-track-type-l ()
+        [ [ 0x01 . "video" ]
+          [ 0x02 . "audio" ]
+          [ 0x03 . "complex" ]
+          [ 0x10 . "logo" ]
+          [ 0x11 . "subtitle" ]
+          [ 0x12 . "button" ]
+          [ 0x20 . "control" ] ] )
+
+(defnet parse-mkv-content-comp-settings (fileinfo f size)
+        (deflocal raw)
+
+        (set raw (raw size))
+        (= (raw-read raw f) size)
+        (set <fileinfo "contentencoding" "ContentCompSettings"> raw) )
+
+(defnet parse-mkv-tracks-end (fileinfo f a-demux @arr)
+        (deflocal asc a c i j k l r info acnt)
+
+        (assoc-clr fileinfo "track")
+        (assoc-clr fileinfo "contentencoding")
+        (set asc <fileinfo "tracks">)
+        (set a (array (length asc)))
+        (for i in asc do
+                (set <a (for-pos)> (cons (str->num (car i)) (cdr i))) )
+        (set <fileinfo "tracks-array"> a)
+        (sort a (funptr less0))
+        (set @arr (array (+ (length a) 1)))
+        (set info <fileinfo "main-info">)
+        (set acnt 0)
+        (for i in a do
+                (set asc (cdr i))
+                (set c <asc "CodecID">)
+                (clr k)
+                (if (in c [ "V_MS/VFW/FOURCC" "V_MPEG4/ISO/ASP" "V_MPEG4/ISO/AVC" ])
+                then    (if (= a-demux undef)
+                        then    (set k (vid-create f)) )
+                else (if (in c [ "A_MPEG/L1" "A_MPEG/L2" "A_MPEG/L3" "A_AC3" "A_DTS" "A_AAC" ])
+                then    (inc acnt)
+                        (if (or (= a-demux undef) (= acnt a-demux))
+                        then    (set k (aud-create f (if (= c "A_AC3") 3 (if (= c "A_DTS") 5 (if (= c "A_AAC") 7 1))))) )
+                        (if (= acnt a-demux)
+                        then    (aud-fpout-begin k <info "audio-fpout">
+                                        (cfg-get-or-default "audio-saving-skip-garbage"
+                                                <info "default"> ))
+                                (set <info "audio-aud"> k) )))
+                (if (or (<> k undef) (and (= a-demux undef) (= <asc "TrackType"> "video")))
+                then    (clr r)
+                        (for l in <asc "ContentEncodings"> do
+                                (set r <(cdr l) "ContentCompSettings">)
+                                until (rawp r) )
+                        (set j (array 5))
+                        (set <asc "low"> j)
+                        (set <j 0> k)
+                        (set <j 1> (if (in c [ "V_MPEG4/ISO/ASP" "V_MPEG4/ISO/AVC" "A_AAC" ])
+                                        <asc "CodecPrivate">
+                                        undef ))
+                        (set <j 2> r)
+                        (set <j 3> 0)
+                        (set <j 4> 0)
+                        (set <@arr (car i)> j) ))
+        (set <@arr 0> 0) )
+
+(defnet parse-mkv-edition-entry (fileinfo f endpos @complete @arr)
+        (deflocal q a)
+
+        (set q (queue))
+        (set a (assoc-default (parse-mkv-edition-entry-default)))
+        (set <fileinfo "edition"> q)
+        (set <fileinfo "edition-values"> a)
+        (parse-ebml fileinfo f endpos 0x45b9 "EditionEntry" 2 @complete undef @arr)
+        (assoc-clr fileinfo "edition")
+        (assoc-clr fileinfo "edition-values")
+        (if (or (> (length q) 0) (> (length a) 0))
+        then    (queue-put <fileinfo "Editions"> (cons q a)) ))
+
+(defnet parse-mkv-chapter-atom (fileinfo f endpos @complete @arr)
+        (deflocal upq q a)
+
+        (set upq <fileinfo "edition">)
+        (set q (queue))
+        (set <fileinfo "edition"> q)
+        (set a (assoc-default (parse-mkv-chapter-default)))
+        (set <a "ChapterTrackNumber"> (queue))
+        (set <a "displays"> (queue))
+        (set <fileinfo "chapter"> a)
+        (parse-ebml fileinfo f endpos 0xb6 "ChapterAtom" 3 @complete undef @arr)
+        (queue-put upq a)
+        (if (> (length q) 0)
+        then    (set <a "ChapterAtom"> q) )
+        (assoc-clr fileinfo "chapter")
+        (set <fileinfo "edition"> upq) )
+
+(defnet parse-mkv-chapter-track-number (fileinfo f size)
+        (deflocal v)
+
+        (set v (freaduint-be f (* size 8)))
+        (if (<> v undef)
+        then    (queue-put <fileinfo "chapter" "ChapterTrackNumber"> v) ))
+
+(defnet parse-mkv-chapter-display (fileinfo f endpos @complete @arr)
+        (deflocal a)
+
+        (set a (assoc-default (parse-mkv-chapter-display-default)))
+        (queue-put <fileinfo "chapter" "displays"> a)
+        (set <fileinfo "chapterdisplay"> a)
+        (parse-ebml fileinfo f endpos 0x80 "ChapterDisplay" 4 @complete undef @arr)
+        (assoc-clr fileinfo "chapterdisplay") )
+
+(defnet parse-mkv-tag (fileinfo f endpos @complete @arr)
+        (deflocal quids qsimpletags)
+
+        (set quids (queue))
+        (set qsimpletags (queue))
+        (set <fileinfo "quids"> quids)
+        (set <fileinfo "qsimpletags"> qsimpletags)
+        (parse-ebml fileinfo f endpos 0x7373 "Tag" 2 @complete undef @arr)
+        (if (> (length qsimpletags) 0)
+        then    (queue-put <fileinfo "Tags"> (cons quids qsimpletags)) ))
+
+(defnet parse-mkv-tag-targets (fileinfo f endpos @complete @arr)
+        ; FIXME
+        (parse-ebml fileinfo f endpos 0x63c0 "Targets" 3 @complete undef @arr) )
+
+(defnet parse-mkv-tag-simpletag (fileinfo f endpos @complete @arr)
+        (deflocal a)
+
+        (set a (assoc-default (parse-mkv-simpletag-default)))
+        (queue-put <fileinfo "qsimpletags"> a)
+        (set <fileinfo "simpletag"> a)
+        (parse-ebml fileinfo f endpos 0x67c8 "SimpleTag" 3 @complete undef @arr)
+        (assoc-clr fileinfo "simpletag") )
+
+(defnet parse-mkv-segment-end (fileinfo f @arr)
+        (deflocal dur q a i)
+
+        (if (= (length <fileinfo "tracks">) 0)
+        then    (set <fileinfo "tracks-array"> (array 0)) )
+        (set dur (* <fileinfo "Duration">
+                    <fileinfo "TimeCodeScale">
+                    0.000000001 ))
+        (set <fileinfo "Duration"> dur)
+        (set q (queue))
+        (for i in <fileinfo "Editions"> do
+                (parse-mkv-segment-end-rec (car i) a dur
+                        <(cdr i) "EditionFlagOrdered"> )
+                (queue-put q (cons a (cdr i))) )
+        (set <fileinfo "Editions"> q)
+        (set q (queue))
+        (for i in <fileinfo "Tags"> do
+                (if true        ; FIXME
+                then    (queue-put q i) ))
+        (set <fileinfo "Tags"> q) )
+
+(defnet parse-mkv-segment-end-rec (q @a default-time-end playlist)
+        (deflocal i e)
+
+        (set @a (array (length q)))
+        (for i in q do
+                (set <@a (for-pos)> (cons (* <i "ChapterTimeStart"> 0.000000001) i))
+                        (assoc-clr i "ChapterTimeStart") )
+        (if (not playlist)
+        then    (sort @a (funptr less0)) )
+        (for i in @a do
+                (set e <(cdr i) "ChapterTimeEnd">)
+                (if (= e undef)
+                then    (if (< (for-pos) (- (length @a) 1))
+                        then    (set e (car <@a (+ (for-pos) 1)>))
+                        else    (set e (if (= default-time-end undef) (car i) default-time-end)) )
+                else    (set e (* e 0.000000001)) )
+                (set <(cdr i) "ChapterTimeEnd"> e)
+                (set q <(cdr i) "ChapterAtom">)
+                (if (<> q undef)
+                then    (parse-mkv-segment-end-rec q q e playlist)
+                        (set <(cdr i) "ChapterAtom"> q) )))
+
+(defnet parse-mkv-block (fileinfo f size a-demux arr)
+        (deflocal track timecode flags frame-cnt k p r
+                  lace-type ; keyframe invisible discardable
+                  frsizq
+                  i )
+
+        (opt    (vint-basic f track i)
+                (dec-size size (+ i 4))
+                (> track 0)
+                (set track <arr track>)
+                (<> track undef)
+                (set timecode (freadsint-be f 16))
+                (set flags (freaduint-be f 8))
+                (set lace-type (flags-field flags 1 2))
+                ;(set keyframe (= (flags-field flags 7 1) 1))
+                ;(set invisible (= (flags-field flags 3 1) 1))
+                ;(set discardable (= (flags-field flags 0 1) 1))
+                (if (= lace-type 0)
+                then    (set frame-cnt 1)
+                else    (dec-size size 1)
+                        (set frame-cnt (+ (freaduint-be f 8) 1))
+                        (parse-mkv-block-lacing f size frsizq lace-type frame-cnt) )
+                (set k <track 0>)
+                (set p <track 1>)
+                (set r <track 2>)
+                (inc <track 4> size)
+                (if (audp k)
+                then    (inc <arr 0>)
+                        (if (<> p undef)
+                        then    (set i (fpos f))
+                                (fsetpos (car p) f)
+                                (aud-parse-aac-header k (cdr p))
+                                (fsetpos i f)
+                                (set <track 1> undef) )
+                        (if (= frame-cnt 1)
+                        then    (if (rawp r)
+                                then    (aud-parse k size r)
+                                        (set <track 4> (aud-tot-read k))
+                                else    (aud-parse k size) )
+                        else    ;(print "lace type=" lace-type " - sizes: ")
+                                (while (> (length frsizq) 0) do
+                                        (set i (queue-get frsizq))
+                                        ;(print " " i)
+                                        (if (rawp r)
+                                        then    (aud-parse k i r)
+                                        else    (aud-parse k i) ))
+                                ;(print nl)
+                                (if (rawp r)
+                                then    (set <track 4> (aud-tot-read k)) ))
+                else    (inc <track 3>)
+                        (set <arr 0> (max <arr 0> <track 3>))
+                        (if (vidp k)
+                then    (if (<> p undef)
+                        then    (set i (fpos f))
+                                (fsetpos (car p) f)
+                                (vid-parse-matroska k (cdr p))
+                                (fsetpos i f)
+                                (set <track 1> undef)
+                                (inc <track 4> (cdr p)) )
+                        (if (rawp r)
+                        then    (vid-parse k size r)
+                                (inc <track 4> (length r))
+                        else    (vid-parse k size) )
+                else    (if (rawp r)
+                        then    (inc <track 4> (length r)) )))))
+
+(defnet parse-mkv-block-lacing (f @size @frsizq lace-type frame-cnt)
+        (deflocal tot l i k prev)
+
+        (set @frsizq (queue))
+        (case lace-type of
+                1       ; Xiph
+                        (seq    (set tot 0)
+                                (for k in 2 .. frame-cnt do
+                                        (set l 0)
+                                        (repeat (dec-size @size 1)
+                                                (set i (freaduint-be f 8))
+                                                (inc l i)
+                                                until (< i 255) )
+                                        (queue-put @frsizq l)
+                                        (inc tot l) ))
+                2       ; fixed-size
+                        (seq    (set l (div @size frame-cnt))
+                                (set tot 0)
+                                (for k in 2 .. frame-cnt do
+                                        (queue-put @frsizq l)
+                                        (inc tot l) ))
+                3       ; EBML
+                        (seq    (> frame-cnt 1)
+                                (vint-basic f l i)
+                                (dec-size @size (+ i 1))
+                                (queue-put @frsizq l)
+                                (set tot l)
+                                (for k in 3 .. frame-cnt do
+                                        (set prev l)
+                                        (svint-basic f l i)
+                                        (dec-size @size (+ i 1))
+                                        (inc l prev)
+                                        (queue-put @frsizq l)
+                                        (inc tot l) )))
+        (queue-put @frsizq (- @size tot)) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

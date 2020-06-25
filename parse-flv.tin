@@ -1,0 +1,330 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-flv (info f)
+        (deflocal fileinfo)
+
+        (not <info "aborted">)
+        (fsetpos 0 f)
+        (parse-flv-check info f fileinfo)
+        (set <info "filetype"> "flv")
+        (set <info "video"> <fileinfo "video">)
+        (set <info "audio"> <fileinfo "audio">)
+        (set <info "fileinfo"> fileinfo)
+        (set <info "cleaner"> (netptr parse-flv-clean)) )
+
+(defnet parse-flv-clean (fileinfo)
+        (close <fileinfo "vid">)
+        (close <fileinfo "aud">) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-flv-check (info f @fileinfo)
+        (deflocal a v flags vp ap vinfo-read ainfo-read vid aud
+                  vid-size complete a-demux
+                  frame-cnt vfr enc offs type size ts prev-ts cnt )
+
+        (= (freaduint-be f 24) 0x464c56)
+        (set v (freaduint-be f 8))
+        (set flags (freaduint-be f 8))
+        (= (flags-field flags 3 5) 0)
+        (= (flags-field flags 1 1) 0)
+        (fsetpos (freaduint-be f 32) f)
+        (set vp (= (flags-field flags 0 1) 1))                  ; video present
+        (set ap (= (flags-field flags 2 1) 1))                  ; audio present
+        (set @fileinfo (assoc))
+        (set <@fileinfo "version"> v)
+        (set <@fileinfo "video"> (if vp 1 0))
+        (set <@fileinfo "audio"> (if ap 1 0))
+        (set a (assoc))
+        (set <@fileinfo "script"> a)
+        (set vinfo-read (not vp))
+        (set ainfo-read (not ap))
+        (set frame-cnt 0)
+        (set vfr false)
+        (set enc false)
+        (set cnt 0)
+        (set vid-size 0)
+        (set complete <info "complete">)
+        (set a-demux <info "audio-demux">)
+        (opt*   (skip (freaduint-be f 32))                      ; size of previous packet
+                (set type (freaduint-be f 8))                   ; type of this tag
+                (set size (freaduint-be f 24))                  ; datasize
+                (set ts (freaduint-be f 24))                    ; timestamp
+                (inc ts (* (freaduint-be f 8) 0x1000000))       ; timestamp extended
+                (skip (freaduint-be f 24))                      ; reserved
+                (set v (= (flags-field type 5 1) 1))            ; encrypted tag
+                (set enc (or enc v))
+                (set offs (+ (fpos f) size))
+                (set v (flags-field type 0 5))
+                (if (= a-demux undef)
+                then    (opt    (case v of
+                                        8       (parse-flv-audio info @fileinfo f size ainfo-read aud)
+                                        9       (seq    (parse-flv-video @fileinfo f size vinfo-read vid vid-size)
+                                                        (if (and (> frame-cnt 5) (not vfr))
+                                                        then    (set vfr (> (abs (- (- ts prev-ts) (/ prev-ts (- frame-cnt 1)))) 1)) )
+                                                        (set prev-ts ts)
+                                                        (inc frame-cnt) )
+                                        18      (seq    (not v)
+                                                        (parse-flv-script @fileinfo f size) )))
+                else    (if (= v 8)
+                        then    (parse-flv-audio info @fileinfo f size ainfo-read aud) ))
+                (or (not vinfo-read)
+                    (not ainfo-read)
+                    (<> a-demux undef)
+                    (and vp (or complete (< frame-cnt (parse-video-frame-min)))) )
+                (fsetpos offs f)
+                (inc cnt)
+                (if (= (% cnt 300) 0)
+                then    (parse-progress info f "flv" undef) ))
+        (if (and (not vfr) (not (in "framerate" @fileinfo)))
+        then    (set <@fileinfo "framerate"> (/ 1000 (/ prev-ts (- frame-cnt 1)))) )
+        (set v <@fileinfo "totalduration">)
+        (if (rationalp v)
+        then    (set <@fileinfo "duration"> v) )
+        (set <a "encryption"> enc)
+        (set <@fileinfo "vid"> vid)
+        (set <@fileinfo "aud"> aud)
+        (set <@fileinfo "vid-size"> vid-size)
+        (if (not (in "width" @fileinfo))
+        then    (set <@fileinfo "width"> (width vid)) )
+        (if (not (in "height" @fileinfo))
+        then    (set <@fileinfo "height"> (height vid)) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-flv-video (fileinfo f size @vinfo-read @vid @vid-size)
+        (deflocal v id)
+
+        (dec-size size 1)
+        (set v (freaduint-be f 8))
+        (set id (flags-field v 0 4))
+        (if (not @vinfo-read)
+        then    (case id of
+                        2       (set v "Sorenson H.263")
+                        3       (set v "Screen video")
+                        4       (set v "On2 VP6")
+                        5       (set v "On2 VP6 with alpha channel")
+                        6       (set v "Screen video version 2")
+                        7       (seq    (set v "AVC")
+                                        (set @vid (vid-create f)) )
+                        default (set v "unknown") )
+                (set <fileinfo "vcodec"> v)
+                (set @vinfo-read true) )
+        (if (= id 7)
+        then    (dec-size size 4)
+                (set v (freaduint-be f 8))
+                (skip (freaduint-be f 24))                      ; composition time offset
+                (case v of
+                        0       (vid-parse-matroska @vid size)  ; AVC sequence header
+                        1       (vid-parse @vid size)           ; AVC NALU
+                        2       (skip) ))                       ; AVC end of sequence
+        (inc @vid-size size) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-flv-audio (info fileinfo f size @ainfo-read @aud)
+        (deflocal v id afreq abits achan fpout)
+
+        (dec-size size 1)
+        (set v (freaduint-be f 8))
+        (set id (flags-field v 4 4))
+        (if (not @ainfo-read)
+        then    (set afreq <[ 5512.5 11025 22050 44100 ] (flags-field v 2 2)>)
+                (set abits <[ 8 16 ] (flags-field v 1 1)>)
+                (set achan <[ 1 2 ] (flags-field v 0 1)>)
+                (case id of
+                        0       (set v "PCM")
+                        1       (set v "ADPCM")
+                        2       (set v "MP3")
+                        3       (set v "PCM (le)")
+                        4       (seq    (set v "Nellymoser")
+                                        (set afreq 16000)
+                                        (set achan 1) )
+                        5       (seq    (set v "Nellymoser")
+                                        (set afreq 8000)
+                                        (set achan 1) )
+                        6       (set v "Nellymoser")
+                        7       (set v "G.711 A-law logarithmic PCM")
+                        8       (set v "G.711 mu-law logarithmic PCM")
+                        10      (seq    (set v "AAC")
+                                        (clr afreq abits achan) )
+                        11      (seq    (set v "Speex")
+                                        (set afreq 16000)
+                                        (set abits 16)
+                                        (set achan 1) )
+                        14      (seq    (set v "MP3")
+                                        (set afreq 8000) )
+                        15      (set v "device specific sound")
+                        default (set v "unknown") )
+                (if (in v [ "MP3" "AAC" ] )
+                then    (set @aud (aud-create f (if (= v "MP3") 1 7)))
+                        (set fpout <info "audio-fpout">)
+                        (if (<> fpout undef)
+                        then    (aud-fpout-begin @aud fpout
+                                        (cfg-get-or-default "audio-saving-skip-garbage"
+                                                <info "default"> ))
+                                (set <info "audio-aud"> @aud) ))
+                (set <fileinfo "acodec"> v)
+                (set <fileinfo "afreq"> afreq)
+                (set <fileinfo "abits"> abits)
+                (set <fileinfo "achan"> achan)
+                (set @ainfo-read true) )
+        (if (audp @aud)
+        then    (if (= id 10)
+                then    (dec-size size 1)
+                        (if (= (freaduint-be f 8) 0)
+                        then    ; AAC sequence header
+                                (aud-parse-aac-header @aud size)
+                        else    ; AAC raw
+                                (aud-parse @aud size) )
+                else    (aud-parse @aud size) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-flv-script (fileinfo f size)
+        (deflocal end)
+        (parse-flv-data-obj fileinfo f size end) )
+
+(defnet parse-flv-data (fileinfo f @size @v)
+        (deflocal v)
+
+        (dec-size @size 1)
+        (case (freaduint-be f 8) of
+                0       (seq    ; number
+                                (dec-size @size 8)
+                                (set @v (freadfloat-be f 64)) )
+                1       (seq    ; boolean
+                                (dec-size @size 1)
+                                (set @v (<> (freaduint-be f 8) 0)) )
+                2       (seq    ; string
+                                (parse-flv-str f @size @v) )
+                3       (seq    ; object
+                                (repeat (parse-flv-data-obj fileinfo f @size v)
+                                        until v )
+                                (clr @v) )
+                4       (seq    ; movie clip
+                                (parse-flv-str f @size @v) )
+                5       (seq    ; null
+                                (clr @v) )
+                6       (seq    ; undefined
+                                (clr @v) )
+                7       (seq    ; reference
+                                (dec-size @size 2)
+                                (set @v (freaduint-be f 16)) )
+                8       (seq    ; ECMA array type
+                                (dec-size @size 7)
+                                (for v in 1 .. (freaduint-be f 32) do
+                                        (parse-flv-name-data fileinfo f @size) )
+                                (= (freaduint-be f 24) 9)
+                                (clr @v) )
+                10      (seq    ; strict array
+                                (repeat (parse-flv-data-var fileinfo f @size v)
+                                        until v )
+                                (clr @v) )
+                11      (seq    ; date
+                                (dec-size @size 10)
+                                (set @v (+ (date 1970 1 1 0 0 0 0 0)
+                                           (/ (freadfloat-be f 64) 1000) ))
+                                (skip (freadsint-be f 16)) )
+                12      (seq    ; long string
+                                (dec-size @size 4)
+                                (fsetpos (+ (fpos f) (freaduint-be f 32)) f)
+                                (set @v "[<-long string->]") )
+                default (fail) ))
+
+(defnet parse-flv-data-obj (fileinfo f @size @end)
+        (dec-size @size 1)
+        (= (freaduint-be f 8) 2)
+        (parse-flv-data-var fileinfo f @size @end) )
+
+(defnet parse-flv-data-var (fileinfo f @size @end)
+        (deflocal name data)
+
+        (parse-flv-str f @size name)
+        (if (= name "")
+        then    (dec-size @size 1)
+                (= (freaduint-be f 8) 9)
+                (set @end true)
+        else    (parse-flv-data fileinfo f @size data)
+                (parse-flv-store fileinfo name data)
+                (set @end false) ))
+
+(defnet parse-flv-str (f @size @v)
+        (deflocal len)
+
+        (dec-size @size 2)
+        (set len (freaduint-be f 16))
+        (dec-size @size len)
+        (set @v (utf8-validate (freadstr f len))) )
+
+(defnet parse-flv-name-data (fileinfo f @size)
+        (deflocal name data)
+
+        (parse-flv-str f @size name)
+        (parse-flv-data fileinfo f @size data)
+        (parse-flv-store fileinfo name data) )
+
+(defnet parse-flv-store (fileinfo name data)
+        (if (and (<> data "")
+                 (or (<> data 0) (not (in name [ "duration" "width" "height" "totaldatarate"
+                                                 "audiodatarate" "audiosamplerate" "audiosamplesize"
+                                                 "videodatarate" "framerate"
+                                                 "totalduration" "bytelength" ]))) )
+        then    (set <(if (in name [ "duration" "width" "height" "totaldatarate"
+                                     "audiodatarate" "audiosamplerate" "audiosamplesize"
+                                     "videodatarate" "framerate"
+                                     "totalduration" "bytelength"
+                                     "videocodecid" "audiocodecid" ])
+                        fileinfo
+                        <fileinfo "script"> ) name> data )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

@@ -1,0 +1,190 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse (info) (opt (parse0 info false)))
+(defnet parse0 (info complete)
+        (deflocal path f)
+
+        (if (not (cli)) then (gtk-flush))
+        (set path <info "path">)
+        (set f (fopenro path))
+        (if (= f undef)
+        then    (gtk-message-warning <info "win">
+                        (+ (utf8-validate path)
+                           $": file not found" ))
+                (if (= <info "filesize"> undef)
+                then    (assoc-clr info "path")
+                else    (set <info "path"> (cfg-get "path")) )
+                (fail) )
+        (parse-clean info)
+        (assoc-clr info "fileinfo")
+        (assoc-clr info "cleaner")
+        (assoc-clr info "correction")
+        (assoc-clr info "log-x264")
+        (set <info "filetime"> (ftime path))
+        (set <info "filesize"> (length f))
+        (assoc-clr info "filetype")
+        (set <info "magic"> (utf8-validate (magic-file path)))
+        (set <info "id3tag"> (id3tag-file path))
+        (set <info "exif"> (exif-file path))
+        (set <info "video"> 0)
+        (set <info "audio"> 0)
+        (set <info "complete"> complete)
+        (set <info "aborted"> false)
+        (alt    (parse-avi info f)
+                (parse-asf info f)
+                (parse-mkv info f)
+                (parse-mp4 info f)
+                (parse-ogg info f)
+                (parse-flv info f)
+                (parse-aud info f)
+                (parse-pix info f)
+                (parse-srt info f)
+                (if (not <info "aborted">)
+                then    (assoc-clr info "filetype") ))
+        (close f <info "progress-win">)
+        (assoc-clr info "progress-win")
+        (assoc-clr info "progress-bar")
+        (if <info "aborted">
+        then    (set <info "complete"> false) )
+        (set <info "path"> path)
+        (set <info "short-path"> (utf8-validate (fullpath->name path)))
+        (set <info "time"> (now))
+        (parse-attach-correction info)
+        (parse-attach-log-x264 info path)
+        (cfg-set "path" path) )
+
+(defnet parse-attach-correction (info)
+        (deflocal n a i vid fps)
+
+        (set n <info "video">)
+        (if (and <info "complete"> (> n 0))
+        then    (set a (array default 0 n 3))
+                (for i in 1 .. n do
+                        (opt    (info->vid-fps-basic info (for-pos) vid fps)
+                                (set <a (for-pos) 0> vid)
+                                (set <a (for-pos) 1> (vid-qscale-correction-a vid))
+                                (set <a (for-pos) 2> (vid-qscale-correction-b vid)) ))
+                (set <info "correction"> a) ))
+
+(defnet parse-attach-log-x264 (info path)
+        (deflocal i)
+
+        (opt    (avcp info)
+                (search "/" path i (maxint))
+                (set path (sub 0 (+ i 1) path))
+                (alt    (parse-log-x264 (+ path "x264 2nd pass.log") i)
+                        (parse-log-x264 (+ path "x264.log") i) )
+                (set <info "log-x264"> i) ))
+
+(defnet parse-clean (info)
+        (deflocal cleaner)
+
+        (set cleaner <info "cleaner">)
+        (if (<> cleaner undef)
+        then    (call cleaner <info "fileinfo">) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-progress (info f parser vid)
+        (if (not (cli)) then (parse-progress-basic info f parser vid)) )
+
+(defnet parse-progress-basic (info f parser vid)
+        (deflocal win now pos tot pb)
+
+        (not <info "aborted">)
+        (set now (now))
+        (set pos (fpos f))
+        (set tot <info "filesize">)
+        (set win <info "progress-win">)
+        (if (= win undef)
+        then    (set <info "progress-start-time"> now)
+                (set <info "progress-start-pos"> pos)
+                (parse-progress-setup info)
+                (set win <info "progress-win">)
+        else    (gtk-label-set-text <info "progress-time">
+                        (date-s2hhmmss (/ (* (- tot pos)
+                                             (- now <info "progress-start-time">) )
+                                          (- pos <info "progress-start-pos">) ))))
+        (set pb <info "progress-bar">)
+        (gtk-progress-bar-set-fraction pb (/ pos tot))
+        (gtk-progress-bar-set-text pb (sprint (rint (/ pos tot 0.01)) "%"))
+        (gtk-flush) )
+
+(defnet parse-progress-setup (info)
+        (if (not (cli)) then (parse-progress-setup-basic info)) )
+
+(defnet parse-progress-setup-basic (info)
+        (deflocal win pb vb hb w)
+
+        (set win (gtk-window-new))
+        (set <info "progress-win"> win)
+        (gtk-signal-connect win "delete-event" (netptr parse-progress-no-delete))
+        (gtk-window-set-transient-for win <info "win">)
+        (gtk-window-set-modal win true)
+        (gtk-window-set-title win $"Analysis...")
+        (gtk-container-set-border-width win 10)
+
+        (set vb (gtk-vbox-new false 6))
+        (gtk-container-add win vb)
+
+        (set hb (gtk-hbox-new false 6))
+        (gtk-box-pack-start vb hb true false 0)
+
+        (set pb (gtk-progress-bar-new))
+        (set <info "progress-bar"> pb)
+        (gtk-box-pack-start hb pb true true 0)
+
+        (set w (gtk-label-new "99:59:59"))
+        (set <info "progress-time"> w)
+        (gtk-box-pack-start hb w false false 0)
+
+        (set w (gtk-button-new))
+        (gtk-box-pack-start hb w false false 0)
+        (gtk-signal-connect w "clicked" (netptr parse-progress-abort) info)
+
+                (set hb (gtk-hbox-new false 5))
+                (gtk-container-add w hb)
+                (gtk-box-pack-start hb (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/dialog-cancel-3.png")) false false 0)
+                (gtk-box-pack-start hb (gtk-label-new $"Abort") false false 0)
+
+        (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER))
+        (gtk-widget-show-all win) )
+
+(defnet parse-progress-no-delete (e)
+        (success) )
+
+(defnet parse-progress-abort (info)
+        (deflocal d)
+
+        (set d (now))
+        (alt    (gtk-question <info "progress-win"> $"The current operation will be aborted.\nAre you sure?")
+                (seq    (assoc-inc info "progress-start-time" (- (now) d))
+                        (fail) ))
+        (set <info "aborted"> true) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

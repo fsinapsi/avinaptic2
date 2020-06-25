@@ -1,0 +1,395 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-avi (info f)
+        (deflocal loc-info avi stop rec-lists streams)
+
+        (not <info "aborted">)
+        (fsetpos 0 f)
+        (set avi (avi-open-input-file <info "path"> true))
+        (<> avi undef)
+        (set loc-info (assoc-default (parse-mp4-default)))
+        (set <loc-info "odml"> false)
+        (set <loc-info "odml-multi"> false)
+        (set <loc-info "odml-index"> false)
+        (set <loc-info "dmf-menu"> false)
+        (set stop false)
+        (set rec-lists false)
+        (alt    (seq    (parse-avi-rec info loc-info f (length f) undef 0 <info "complete"> <info "audio-demux"> stop rec-lists streams)
+                        (<> streams undef) )
+                (seq    (parse-avi-clean (cons loc-info avi))
+                        (fail) ))
+        (parse-avi-index loc-info avi)
+        (set <loc-info "rec-lists"> rec-lists)
+        (set <info "video"> <loc-info "video">)
+        (set <info "audio"> <loc-info "audio">)
+        (set <info "filetype"> "avi")
+        (set <info "fileinfo"> (cons loc-info avi))
+        (set <info "cleaner"> (netptr parse-avi-clean)) )
+
+(defnet parse-avi-clean (fileinfo)
+        (deflocal stream)
+
+        (for stream in <(car fileinfo) "streams"> do
+                (close <stream 2>) )
+        (close (cdr fileinfo)) )
+
+(defnet parse-avi-index (loc-info avi)
+        (deflocal i k qk kmin kmax cnt z qz klast zlast)
+
+        (for i in <loc-info "streams"> do
+                (set k <i 2>)
+                (if (vidp k)
+                then    (if (< (vid-bitstream-type k) 1)
+                        then    (close k)
+                                (set <i 2> undef) )))
+        (if (avi-has-index avi)
+        then    (set k 0)
+                (set kmin (maxint))
+                (set kmax 1)
+                (set cnt 1)
+                (set z 0)
+                (set qk (queue))
+                (set qz (queue))
+                (for i in 0 .. (- (avi-video-frames avi) 1) do
+                        (if (avi-video-frame-is-keyframe avi i)
+                        then    (if (< (length qk) 5)
+                                then    (queue-put qk i) )
+                                (set k (+ k 1))
+                                (set klast i)
+                                (if (and (> i 0) (< cnt kmin))
+                                then    (set kmin cnt) )
+                                (set cnt 1)
+                        else    (set cnt (+ cnt 1))
+                                (set kmax (max kmax cnt)) )
+                        (if (= (avi-video-size avi i) 0)
+                        then    (if (< (length qz) 5)
+                                then    (queue-put qz i) )
+                                (set z (+ z 1))
+                                (set zlast i) ))
+                (set kmin (min kmin kmax))
+                (set <loc-info "avi-video-min-keyint"> kmin)
+                (set <loc-info "avi-video-max-keyint"> kmax)
+                (set <loc-info "avi-video-keyframes"> k)
+                (set <loc-info "avi-keyframes"
+> (+ (format-int k) (if (= k 0) ""
+                           (+ " (" (sprintl qk "; ") (if (= (length qk) k) ""
+                                   (sprint "; ... " klast)) ")" ))))
+                (set <loc-info "avi-nulframes"
+> (+ (format-int z) (if (= z 0) ""
+                           (+ " (" (sprintl qz "; ") (if (= (length qz) z) ""
+                                   (sprint "; ... " zlast)) ")" )))) ))
+
+(defnet parse-avi-rec (info loc-info f end uptype level complete a-demux @stop @rec-lists @streams)
+        (deflocal id size size-used off ckend type)
+
+        (while (and (< (+ (fpos f) 8) end)
+                    (not (and @stop (or (= uptype "movi") (= uptype "rec ")))) ) do
+                (set id (freadstr f 4))
+                (set size-used (freaduint-le f 32))
+                (set size (+ size-used (% size-used 2)))
+                (set off (fpos f))
+                (or (> off 8) (= id "RIFF"))
+                (set ckend (+ off size))
+                (if (> ckend end)
+                then    (assoc-queue loc-info "corrupt" (utf8-validate id))
+                        (set ckend end) )
+                (if (or (= id "RIFF") (= id "LIST"))
+                then    (set type (freadstr f 4))
+                        (or (> off 8) (= type "AVI "))
+
+                        ;(print (tile (* level 4)) '#' id "# / #" type '#' nl)
+
+                        (if (and (= id "LIST") (= type "strl"))
+                        then    (set <loc-info "strl-pos"> off)
+                                (set <loc-info "strl-size"> (+ size 8)) )
+
+                        (if (and (= id "LIST") (= type "goog"))
+                        then    (set <loc-info "google"> (list (- off 8) (+ size 8) level)) )
+
+                        (if (and (= id "LIST") (= type "odml"))
+                        then    (set <loc-info "odml"> true) )
+
+                        (if (and (= id "RIFF") (= type "AVIX"))
+                        then    (set <loc-info "odml"> true)
+                                (set <loc-info "odml-multi"> true) )
+
+                        (if (and (= id "RIFF") (= type "MENU"))
+                        then    (set <loc-info "dmf-menu"> true) )
+
+                        (if (= type "rec ")
+                        then    (set @rec-lists true) )
+
+                        (parse-avi-rec info loc-info f ckend type (+ level 1) complete a-demux @stop @rec-lists @streams)
+
+                        (if (= type "hdrl")
+                        then    (parse-avi-setup loc-info @streams) )
+
+                else
+
+                        ;(print (tile (* level 4)) '#' id '#' nl)
+
+                        (if (= uptype "INFO")
+                        then    (parse-avi-info loc-info f id size-used) )
+
+                        (if (= id "JUNK")
+                        then    (parse-avi-junk loc-info f size-used) )
+
+                        (if (= id "indx")
+                        then    (set <loc-info "odml"> true)
+                                (set <loc-info "odml-index"> true) )
+
+                        (if (and (= uptype "hdrl") (= id "avih"))
+                        then    (parse-avi-header loc-info f size-used @streams) )
+
+                        (if (and (= uptype "strl") (= id "strh"))
+                        then    (parse-avi-stream-header loc-info f size-used @streams) )
+
+                        (if (and (= uptype "strl") (= id "strf"))
+                        then    (parse-avi-stream-format info loc-info a-demux f size-used @streams) )
+
+                        (if (and (= uptype "strl") (= id "strn"))
+                        then    (parse-avi-stream-name loc-info f size-used @streams) )
+
+                        (if (and (= uptype "strl") (= id "vprp"))
+                        then    (set <loc-info "odml"> true)
+                                (parse-avi-vprp-header loc-info f size-used @streams) )
+
+                        (if (or (= uptype "movi") (= uptype "rec "))
+                        then    ;(print (tile (* level 4)) "..." nl)
+
+                                (parse-avi-stream info loc-info f size-used
+                                        <@streams (+ (* 16 (charhex2int <id 0>)) (charhex2int <id 1>))>
+                                        complete a-demux @stop )
+
+                        else    ; FIXME
+                                ; qui andrebbe l`eventuale modifica dell`albero
+                                (skip) ))
+                (fsetpos ckend f) ))
+
+(defnet parse-avi-info (loc-info f id size-used)
+        (deflocal i)
+
+        (set i (utf8-validate (freadstr f size-used)))
+        (if (and (<> i undef) (or (<> id "JUNK") (<> i "")))
+        then    (assoc-queue-unique loc-info "INFO" (cons id i)) ))
+
+(defnet parse-avi-junk (loc-info f size-used)
+        (deflocal i)
+
+        (set i (utf8-validate (avi-parse-junk f size-used)))
+        (if (and (<> i undef) (<> i ""))
+        then    (assoc-queue-unique loc-info "JUNK" i) ))
+
+(defnet parse-avi-header (loc-info f size-used @streams)
+        (deflocal i)
+
+        (>= size-used 40)
+        (= @streams undef)
+        (set <loc-info "fps2"> (/ 1000000 (freaduint-le f 32)))
+        (skip (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (set <loc-info "riff-avi-frames"> (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (set @streams (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (set <loc-info "width"> (freaduint-le f 32))
+        (set i (freaduint-le f 32))
+        (<> i undef)
+        (set <loc-info "height"> i)
+        (set @streams (array @streams 5))
+        (set <loc-info "streams"> @streams)
+        (set <loc-info "curstream"> -1) )
+
+(defnet parse-avi-stream-header (loc-info f size-used streams)
+        (deflocal stream type trk-info scale rate start samplesize)
+
+        (>= size-used 48)
+        (<> streams undef)
+        (set stream (+ 1 <loc-info "curstream">))
+        (< stream (length streams))
+        (set <loc-info "curstream"> stream)
+        (set stream <streams stream>)
+        (set type (freadstr f 4))
+        (set <stream 0> type)
+        (set trk-info (assoc))
+        (set <stream 1> trk-info)
+        (case type of
+                "vids"  (set <trk-info "handler"> (utf8-validate (freadstr f 4)))
+                default (skip (freaduint-le f 32)) )
+        (skip (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (set scale (freaduint-le f 32))
+        (set rate (freaduint-le f 32))
+        (set start (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (skip (freaduint-le f 32))
+        (set samplesize (freaduint-le f 32))
+        (<> samplesize undef)
+        (set <trk-info "scale"> scale)
+        (set <trk-info "rate"> rate)
+        (set <trk-info "start"> start)
+        (set <trk-info "delay"> (/ (* start scale) rate))
+        (if (and (= type "vids") (= <loc-info "fps1"> undef))
+        then    (set <loc-info "fps1"> (/ rate scale)) )
+        (if (= type "auds")
+        then    (set <trk-info "vbr"> (= samplesize 0)) ))
+
+(defnet parse-avi-stream-format (info loc-info a-demux f size-used streams)
+        (deflocal stream trk-info aud i a-cnt)
+
+        (set stream <loc-info "curstream">)
+        (>= stream 0)
+        (set stream <streams stream>)
+        (set trk-info <stream 1>)
+        (case <stream 0> of
+                "vids"  (seq    (>= size-used 40)
+                                (assoc-inc loc-info "video")
+                                (set <stream 2> (vid-create f))
+                                (set <stream 3> 0)
+                                (skip (freaduint-le f 32))
+                                (set <trk-info "width"> (freaduint-le f 32))
+                                (set <trk-info "height"> (freaduint-le f 32))
+                                (skip (freaduint-le f 16))
+                                (skip (freaduint-le f 16))
+                                (set <trk-info "fourcc"> (utf8-validate (freadstr f 4)))
+                                (skip (freaduint-le f 32))
+                                (skip (freaduint-le f 32))
+                                (skip (freaduint-le f 32))
+                                (skip (freaduint-le f 32))
+                                (<> (freaduint-le f 32) undef) )
+                "auds"  (seq    (>= size-used 16)
+                                (set a-cnt (+ 1 <loc-info "audio">))
+                                (set <loc-info "audio"> a-cnt)
+                                (set i (freaduint-le f 16))
+                                (if (or (= a-cnt a-demux) (= a-demux undef))
+                                then    (if (in i [ 0x50 0x55 ])
+                                        then    (set aud (aud-create f 1))
+                                        else (if (= i 0x2000)
+                                        then    (set aud (aud-create f 3))
+                                        else (if (= i 0x2001)
+                                        then    (set aud (aud-create f 5))
+                                        else    (clr aud) )))
+                                        (if (= a-cnt a-demux)
+                                        then    (aud-fpout-begin aud <info "audio-fpout">
+                                                        (cfg-get-or-default "audio-saving-skip-garbage"
+                                                                <info "default"> ))
+                                                (set <info "audio-aud"> aud) )
+                                else    (clr aud) )
+                                (set <stream 2> aud)
+                                (set <stream 3> 0)
+                                (set <trk-info "tag"> i)
+                                (set <trk-info "channels"> (freaduint-le f 16))
+                                (set <trk-info "frequency"> (freaduint-le f 32))
+                                (set <trk-info "bitrate"> (/ (* 8 (freaduint-le f 32)) 1000))
+                                (skip (freaduint-le f 16))
+                                (<> (freaduint-le f 16) undef) )))
+
+(defnet parse-avi-stream-name (loc-info f size-used streams)
+        (deflocal i stream)
+
+        (set i (utf8-validate (freadstr f size-used)))
+        (if (and (<> i undef) (<> i ""))
+        then    (set stream <loc-info "curstream">)
+                (>= stream 0)
+                (set stream <streams stream>)
+                (set <stream 1 "name"> i) ))
+
+(defnet parse-avi-vprp-header (loc-info f size-used streams)
+        (deflocal stream trk-info)
+
+        (set stream <loc-info "curstream">)
+        (>= stream 0)
+        (set stream <streams stream>)
+        (if (= <stream 0> "vids")
+        then    (>= size-used 36)
+                (set trk-info <stream 1>)
+                (skip (freaduint-le f 32))
+                (skip (freaduint-le f 32))
+                (skip (freaduint-le f 32))
+                (skip (freaduint-le f 32))
+                (skip (freaduint-le f 32))
+                (set <trk-info "vprp-aspect-y"> (freaduint-le f 16))
+                (set <trk-info "vprp-aspect-x"> (freaduint-le f 16))
+                (skip (freaduint-le f 32))
+                (skip (freaduint-le f 32))
+                (<> (freaduint-le f 32) undef) ))
+
+(defnet parse-avi-setup (loc-info streams)
+        (deflocal vstream stream)
+
+        (for stream in streams do
+                (if (= <stream 0> "vids")
+                then    (if (= vstream undef)
+                        then    (set vstream stream)
+                                (set <stream 4> <loc-info "fps1">)
+                        else    (if <loc-info "dmf-menu">
+                                then    (set <stream 0> "sdmf") ))))
+        (for stream in streams do
+                (if (= <stream 0> "auds")
+                then    (set <stream 4> vstream) )))
+
+(defnet parse-avi-stream (info loc-info f size-used stream complete a-demux @stop)
+        (case <stream 0> of
+                "vids"  (if (= a-demux undef)
+                        then    (parse-avi-video info loc-info f size-used stream complete @stop) )
+                "auds"  (parse-avi-audio info f a-demux size-used stream @stop) ))
+
+(defnet parse-avi-video (info loc-info f size-used stream complete @stop)
+        (deflocal vid cnt i)
+
+        (set vid <stream 2>)
+        (set cnt <stream 3>)
+        (if (= cnt 0)
+        then    (for i in <loc-info "streams"> do
+                        (if (= <i 0> "auds")
+                        then    (set <i 1 "preload"> (aud-duration <i 2>) ))))
+        (alt    (seq    (vid-parse vid size-used)
+                        (set cnt (+ cnt 1))
+                        (set <stream 3> cnt)
+                        (if (= (% cnt 300) 0)
+                        then    (parse-progress info f "avi" vid) )
+                        (or complete (< cnt (parse-video-frame-min))) )
+                (set @stop true) ))
+
+(defnet parse-avi-audio (info f a-demux size-used stream @stop)
+        (deflocal aud vstream d)
+
+        (opt    (set aud <stream 2>)
+                (audp aud)
+                (if (= a-demux undef)
+                then    (set vstream <stream 4>)
+                        (if (= (aud-frames aud) 0)
+                        then    (set <stream 1 "preload-frames"> <vstream 3>) )
+                        (aud-parse aud size-used)
+                        (set d (abs (- (aud-duration aud)
+                                (/ <vstream 3> <vstream 4>) )))
+                        (if (> d <stream 3>)
+                        then    (set <stream 3> d) )
+                else    (aud-parse aud size-used)
+                        (set d (+ 1 <stream 3>))
+                        (set <stream 3> d)
+                        (if (= (% d 1000) 0)
+                        then    (alt    (parse-progress info f "avi" undef)
+                                        (set @stop true) )))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

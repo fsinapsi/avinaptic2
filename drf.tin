@@ -1,0 +1,472 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun drf-graph-width () 500)
+(defun drf-graph-height () 180)
+(defun drf-graph-descr-width () 56)
+(defun drf-graph-mag-step () 0.2)
+(defun drf-graph-mag-max () 20)
+(defun drf-graph-avg-int-max () 300)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf (info vid fps)
+        (deflocal win vb hb hb2 i j
+                  mag profiles im1 im2 hscale eb-mag gim2
+                  btn1 btn2 sp-drf-min sp-drf-max sp-size-min sp-size-max cb-type
+                  fr-bottom-graph cb-bottom-graph
+                  fr-avg-int avg-int
+                  fr-profile cb-profile
+                  time-label bottom-label )
+
+        (set mag (array default 1 1))
+        (set profiles (cfg-get "profiles"))
+
+        (set win (gtk-window-new))
+        (gtk-window-set-transient-for win <info "win">)
+        (gtk-window-set-modal win true)
+        (gtk-window-set-resizable win false)
+        (gtk-window-set-title win $"DRF graph")
+        (gtk-container-set-border-width win 8)
+
+        (set vb (gtk-vbox-new false 6))
+        (gtk-container-add win vb)
+
+        (set hb (gtk-hbox-new false 4))
+        (gtk-box-pack-start vb hb true false 0)
+
+                (set i (pix-create (drf-graph-descr-width) (drf-graph-height)))
+                (if (= (vid-bitstream-type vid) 3)
+                then    (drf-pix-draw-value i "q=10" (linear 10 0 45 0 1))
+                        (drf-pix-draw-value i "q=20" (linear 20 0 45 0 1))
+                        (drf-pix-draw-value i "q=40" (linear 40 0 45 0 1))
+                else    (drf-pix-draw-value i "q=4"  (linear  4 0 18 0 1))
+                        (drf-pix-draw-value i "q=8"  (linear  8 0 18 0 1))
+                        (drf-pix-draw-value i "q=16" (linear 16 0 18 0 1)) )
+                (pix-transparent i (pix-color 0xff 0xff 0xff))
+                (gtk-box-pack-start hb (gtk-image-new-from-pixbuf i) false false 0)
+                (close i)
+
+                (set im1 (gtk-image-new (drf-graph-width) (drf-graph-height)))
+                (gtk-box-pack-start hb im1 false false 0)
+
+        (set hb (gtk-hbox-new false 6))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set time-label (gtk-label-new ""))
+                (gtk-box-pack-start hb time-label false false 0)
+
+                (set hscale (gtk-hscale-new-with-range 0 (- (length vid) 1) 1))
+                (gtk-box-pack-start hb hscale true true 0)
+
+        (set hb (gtk-hbox-new false 4))
+        (gtk-box-pack-start vb hb true false 0)
+
+                (set gim2 (gtk-image-new (drf-graph-descr-width) (drf-graph-height)))
+                (gtk-box-pack-start hb gim2 false false 0)
+                (close i)
+
+                (set eb-mag (gtk-event-box-new))
+                (gtk-box-pack-start hb eb-mag false false 0)
+                (set im2 (gtk-image-new (drf-graph-width) (drf-graph-height)))
+                (gtk-container-add eb-mag im2)
+
+        (set i (gtk-frame-new $"Search"))
+        (gtk-box-pack-start vb i false false 0)
+
+        (set hb (gtk-hbox-new false 6))
+        (gtk-container-add i hb)
+        (gtk-container-set-border-width hb 6)
+
+                (set i (gtk-frame-new "DRF range"))
+                (gtk-box-pack-start hb i false false 0)
+
+                (set hb2 (gtk-hbox-new true 6))
+                (gtk-container-add i hb2)
+                (gtk-container-set-border-width hb2 6)
+
+                        (set j (if (= (vid-bitstream-type vid) 3) 51 31))
+
+                        (set sp-drf-min (gtk-spin-button-new-with-range 0 j 1))
+                        (gtk-spin-button-set-value sp-drf-min 0)
+                        (gtk-spin-button-set-numeric sp-drf-min true)
+                        (gtk-spin-button-set-wrap sp-drf-min false)
+                        (gtk-box-pack-start hb2 sp-drf-min true true 0)
+
+                        (set sp-drf-max (gtk-spin-button-new-with-range 0 j 1))
+                        (gtk-spin-button-set-value sp-drf-max j)
+                        (gtk-spin-button-set-numeric sp-drf-max true)
+                        (gtk-spin-button-set-wrap sp-drf-max false)
+                        (gtk-box-pack-start hb2 sp-drf-max true true 0)
+
+                (set i (gtk-frame-new $"Frame size range"))
+                (gtk-box-pack-start hb i false false 0)
+
+                (set hb2 (gtk-hbox-new true 6))
+                (gtk-container-add i hb2)
+                (gtk-container-set-border-width hb2 6)
+
+                        (set j (vid-max-frame-size vid))
+
+                        (set sp-size-min (gtk-spin-button-new-with-range 0 j 1))
+                        (gtk-spin-button-set-value sp-size-min 0)
+                        (gtk-spin-button-set-numeric sp-size-min true)
+                        (gtk-spin-button-set-wrap sp-size-min false)
+                        (gtk-box-pack-start hb2 sp-size-min true true 0)
+
+                        (set sp-size-max (gtk-spin-button-new-with-range 0 j 1))
+                        (gtk-spin-button-set-value sp-size-max j)
+                        (gtk-spin-button-set-numeric sp-size-max true)
+                        (gtk-spin-button-set-wrap sp-size-max false)
+                        (gtk-box-pack-start hb2 sp-size-max true true 0)
+
+                (set i (gtk-frame-new $"Frame type"))
+                (gtk-box-pack-start hb i false false 0)
+
+                (set hb2 (gtk-hbox-new false 0))
+                (gtk-container-add i hb2)
+                (gtk-container-set-border-width hb2 4)
+
+                        (set cb-type (gtk-combo-box-text-new))
+                        (gtk-box-pack-start hb2 cb-type true true 0)
+                        (gtk-combo-box-text-append-text cb-type $"Any type")
+                        (for i in (if (= (vid-bitstream-type vid) 3) (slice-type-list) (vop-type-list)) do
+                                (gtk-combo-box-text-append-text cb-type i) )
+                        (gtk-combo-box-set-active cb-type 0)
+
+                (set i (gtk-frame-new $"Prev/Next"))
+                (gtk-box-pack-start hb i false false 0)
+
+                (set hb2 (gtk-hbox-new true 0))
+                (gtk-container-add i hb2)
+                (gtk-container-set-border-width hb2 6)
+
+                        (set btn1 (gtk-button-new))
+                        (gtk-box-pack-start hb2 btn1 false false 0)
+                        (gtk-container-add btn1 (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/go-previous-7.png")))
+
+                        (set btn2 (gtk-button-new))
+                        (gtk-box-pack-start hb2 btn2 false false 0)
+                        (gtk-container-add btn2 (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/go-next-7.png")))
+
+        (set hb (gtk-hbox-new false 6))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set i (gtk-frame-new "Goto"))
+                (gtk-box-pack-start hb i false false 0)
+
+                (set hb2 (gtk-hbox-new false 6))
+                (gtk-container-add i hb2)
+                (gtk-container-set-border-width hb2 6)
+
+                        (set i (gtk-spin-button-new-with-range 0 (- (length vid) 1) 1))
+                        (gtk-spin-button-set-value i 0)
+                        (gtk-spin-button-set-numeric i true)
+                        (gtk-spin-button-set-wrap i false)
+                        (gtk-box-pack-start hb2 i true true 0)
+                        (gtk-signal-connect i "activate" (netptr drf-goto0) i hscale)
+
+                        (set j (gtk-button-new))
+                        (gtk-box-pack-start hb2 j false false 0)
+                        (gtk-container-add j (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/go-jump-4.png")))
+                        (gtk-signal-connect j "clicked" (netptr drf-goto) i hscale)
+
+                (set fr-bottom-graph (gtk-frame-new $"Bottom graph"))
+                (gtk-box-pack-start hb fr-bottom-graph false false 0)
+
+                (set hb2 (gtk-hbox-new false 0))
+                (gtk-container-add fr-bottom-graph hb2)
+                (gtk-container-set-border-width hb2 4)
+
+                        (set cb-bottom-graph (gtk-combo-box-text-new))
+                        (gtk-box-pack-start hb2 cb-bottom-graph true true 0)
+                        (gtk-combo-box-text-append-text cb-bottom-graph $"Frame size")
+                        (gtk-combo-box-text-append-text cb-bottom-graph $"VBV buffer")
+                        (gtk-combo-box-set-active cb-bottom-graph 0)
+
+                (set fr-avg-int (gtk-frame-new "Avg int"))
+                (gtk-box-pack-start hb fr-avg-int false false 0)
+
+                (set hb2 (gtk-hbox-new false 0))
+                (gtk-container-add fr-avg-int hb2)
+                (gtk-container-set-border-width hb2 6)
+
+                        (set avg-int (gtk-spin-button-new-with-range 0 (drf-graph-avg-int-max) 1))
+                        (gtk-spin-button-set-value avg-int 0)
+                        (gtk-spin-button-set-numeric avg-int true)
+                        (gtk-spin-button-set-wrap avg-int false)
+                        (gtk-box-pack-start hb2 avg-int true true 0)
+                        (gtk-signal-connect avg-int "activate" (netptr drf-avg-int0) vid im2 hscale mag avg-int)
+                        (gtk-signal-connect avg-int "changed" (netptr drf-avg-int) vid im2 hscale mag avg-int)
+
+                (set fr-profile (gtk-frame-new $"Profile"))
+                (gtk-box-pack-start hb fr-profile false false 0)
+
+                (set hb2 (gtk-hbox-new false 0))
+                (gtk-container-add fr-profile hb2)
+                (gtk-container-set-border-width hb2 4)
+
+                        (set cb-profile (gtk-combo-box-text-new))
+                        (gtk-box-pack-start hb2 cb-profile true true 0)
+                        (for i in profiles do
+                                (gtk-combo-box-text-append-text cb-profile <i 0>) )
+                        (gtk-combo-box-set-active cb-profile
+                                (cfg-get-or-default-num "profile" <info "default">) )
+
+        (set hb (gtk-hbox-new false 0))
+        (gtk-box-pack-start vb hb false false 0)
+
+                (set bottom-label (gtk-label-new ""))
+                (gtk-box-pack-start hb bottom-label false false 0)
+
+                (gtk-box-pack-end hb
+                        (gtk-iconed-button (pix-load-static "icons/16x16/dialog-cancel-3.png") $"Close" (netptr drf-quit) win)
+                        false false 0)
+
+        (gtk-signal-connect btn1 "clicked" (netptr drf-search)
+                false vid sp-drf-min sp-drf-max sp-size-min sp-size-max cb-type avg-int hscale )
+        (gtk-signal-connect btn2 "clicked" (netptr drf-search)
+                true vid sp-drf-min sp-drf-max sp-size-min sp-size-max cb-type avg-int hscale )
+        (gtk-signal-connect hscale "value_changed" (netptr drf-graph-changed)
+                vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps )
+        (gtk-signal-connect cb-bottom-graph "changed" (netptr drf-bottom-graph-changed)
+                gim2 vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps )
+        (gtk-signal-connect cb-profile "changed" (netptr drf-graph-changed)
+                vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps )
+        (gtk-signal-connect eb-mag "button-press-event" (netptr drf-mag)
+                gim2 vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps )
+
+        (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER))
+        (gtk-widget-show-all win)
+        (gtk-widget-hide fr-avg-int)
+        (gtk-widget-hide fr-profile)
+        (drf-bottom-graph-changed gim2 vid hscale im1 im2 cb-bottom-graph
+                mag profiles cb-profile fr-avg-int avg-int
+                fr-profile time-label bottom-label fps ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-quit (win)
+        (close win) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-graph-changed (vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps)
+        (deflocal cnt t)
+
+        (set mag <mag 0>)
+        (set cnt (gtk-range-get-value hscale))
+        (gtk-graph-qscale vid im1 cnt)
+        (case (gtk-combo-box-get-active cb-bottom-graph) of
+                0       (seq    (gtk-widget-hide fr-profile)
+                                (gtk-widget-show fr-avg-int)
+                                (gtk-graph-size vid im2 cnt mag (gtk-spin-button-get-value avg-int)) )
+                1       (seq    (gtk-widget-hide fr-avg-int)
+                                (gtk-widget-show fr-profile)
+                                (set t <profiles (gtk-combo-box-get-active cb-profile)>)
+                                (gtk-graph-vbvfill vid im2 cnt <t 4> <t 5> <t 6> fps) ))
+        (set t (vid-cnt-type-frame vid cnt))
+        (gtk-label-set-text time-label (date-s2hhmmss (floor (/ cnt fps))))
+        (gtk-label-set-text bottom-label (+
+                "Type: "
+                (if (> t 4) "drop" <(if (= (vid-bitstream-type vid) 3)
+                                (slice-type-short)
+                                (vop-type-short) ) t
+>)
+                " - q: " (vid-cnt-qscale-frame vid cnt)
+                " - size: " (vid-cnt-size-frame vid cnt)
+                (if (> mag 1) (+ " - mag: " mag) "") )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-bottom-graph-changed (gim2 vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps)
+        (deflocal pix)
+
+        (case (gtk-combo-box-get-active cb-bottom-graph) of
+                0       (drf-pix-size vid <mag 0> pix)
+                1       (drf-pix-size undef undef pix) )
+        (gtk-image-set-from-pixbuf gim2 pix)
+        (close pix)
+        (drf-graph-changed vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-goto0 (spin hscale)
+        (gtk-idle-add (netptr drf-goto) spin hscale) )
+
+(defnet drf-goto (spin hscale)
+        (gtk-range-set-value hscale (gtk-spin-button-get-value spin))
+        (fail) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-avg-int0 (vid im2 hscale mag avg-int)
+        (gtk-idle-add (netptr drf-avg-int) vid im2 hscale mag avg-int) )
+
+(defnet drf-avg-int (vid im2 hscale mag avg-int)
+        (gtk-graph-size vid im2 (gtk-range-get-value hscale) <mag 0>
+                (gtk-spin-button-get-value avg-int) )
+        (fail) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-mag (event btn x y gim2 vid hscale im1 im2 cb-bottom-graph mag profiles cb-profile fr-avg-int avg-int fr-profile time-label bottom-label fps)
+        (deflocal pix)
+
+        (= event (cmacro GDK_BUTTON_PRESS))
+        (= (gtk-combo-box-get-active cb-bottom-graph) 0)
+        (case btn of
+                1       (seq    (< <mag 0> (drf-graph-mag-max))
+                                (inc <mag 0> (drf-graph-mag-step)) )
+                2       (seq    (<> <mag 0> 1)
+                                (set <mag 0> 1) )
+                3       (seq    (> <mag 0> 1)
+                                (inc <mag 0> -(drf-graph-mag-step)) ))
+        (drf-pix-size vid <mag 0> pix)
+        (gtk-image-set-from-pixbuf gim2 pix)
+        (close pix)
+        (drf-graph-changed vid hscale im1 im2 cb-bottom-graph mag
+                profiles cb-profile fr-avg-int avg-int fr-profile
+                time-label bottom-label fps ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-search (forward vid drf-min drf-max size-min size-max type avg-int hscale)
+        (deflocal pos)
+
+        (set drf-min (gtk-spin-button-get-value drf-min))
+        (set drf-max (gtk-spin-button-get-value drf-max))
+        (set size-min (gtk-spin-button-get-value size-min))
+        (set size-max (gtk-spin-button-get-value size-max))
+        (set type (gtk-combo-box-get-active type))
+        (set type (if (= type 0) undef (- type 1)))
+        (set avg-int (gtk-spin-button-get-value avg-int))
+        (set pos (gtk-range-get-value hscale))
+        (set pos (if forward
+                (vid-search-next vid pos size-min size-max avg-int drf-min drf-max type)
+                (vid-search-prev vid pos size-min size-max avg-int drf-min drf-max type) ))
+        (<> pos undef)
+        (gtk-range-set-value hscale pos) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-pix-draw-value (pix value pos)
+        (set value (pix-text value))
+        (opt (pix-draw-pix pix
+                (- (width pix) (width value))
+                (- (rint (linear pos 0 1 (- (height pix) 1) 0)) 4)
+                value ))
+        (close value) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet drf-pix-size (vid mag @pix)
+        (deflocal max avg max-pos avg-pos)
+
+        (set @pix (pix-create (drf-graph-descr-width) (drf-graph-height)))
+        (if (<> vid undef)
+        then    (set max (vid-max-frame-size vid))
+                (set avg (vid-avg-frame-size vid))
+                (set max-pos (* (/ 10 11) mag))
+                (set avg-pos (linear avg 0 max 0 max-pos))
+                (drf-pix-draw-value @pix max max-pos)
+                (drf-pix-draw-value @pix avg avg-pos) )
+        (pix-transparent @pix (pix-color 0xff 0xff 0xff)) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

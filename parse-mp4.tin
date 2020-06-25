@@ -1,0 +1,783 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4 (info f)
+        (deflocal fileinfo a i)
+
+        (not <info "aborted">)
+        (parse-mp4-check f i)
+        (fsetpos 0 f)
+        (set fileinfo (assoc-default (parse-mp4-default)))
+        (set <fileinfo "isomedia"> i)
+        (set <fileinfo "tracks"> (queue))
+        (set <fileinfo "unknown-ids"> (queue))
+        (parse-mp4-rec fileinfo f <info "filesize"> undef -1 a)
+        (parse-mp4-bitstreams info fileinfo f)
+        (set <info "filetype"> "mp4")
+        (set <info "fileinfo"> fileinfo)
+        (set <info "video"> <fileinfo "video">)
+        (set <info "audio"> <fileinfo "audio">)
+        (set <info "cleaner"> (netptr parse-mp4-clean)) )
+
+(defnet parse-mp4-clean (fileinfo)
+        (deflocal i j)
+
+        (for i in <fileinfo "tracks"> do
+                (set j <i "low">)
+                (if (or (vidp j) (audp j))
+                then    (close j) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun parse-mp4-default ()
+        [ [ "video" . 0 ]
+          [ "audio" . 0 ]
+        ] )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-check (f @isomedia)
+        (deflocal cnt size type)
+
+        (fsetpos 0 f)
+        (parse-mp4-box f cnt size type)
+        (>= size cnt)
+        (if (= type 0x6d6f6f76) ; moov
+        then    (set @isomedia false)
+        else    (= type 0x66747970) ; ftyp
+                (set @isomedia true) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-box (f @cnt @size @type)
+        (set @size (freaduint-be f 32))
+        (set @type (freaduint-be f 32))
+        (set @cnt 8)
+        (if (= @size 1)
+        then    (set @size (freaduint-be f 64))
+                (inc @cnt 8) )
+        (if (= @size 0)
+        then    (set @size (+ (- (length f) (fpos f)) @cnt)) )
+        (if (= @type 0x75756964) ; uuid
+        then    (set @type (freaduint-be f 64))
+                (set @type (+ (* @type (pow 2 64)) (freaduint-be f 64)))
+                (inc @cnt 16) ))
+
+(defnet parse-mp4-box-version (f @version @flags @size)
+        (dec-size @size 4)
+        (set @version (freaduint-be f 8))
+        (set @flags (freaduint-be f 24)) )
+
+(defun parse-mp4-date (sec)
+        (+ (date 1904 1 1 0 0 0 0 0) sec) )
+
+(defnet parse-mp4-esds-descr-len (f @len @size)
+        (deflocal cnt c)
+
+        (set cnt 0)
+        (set @len 0)
+        (repeat (dec-size @size 1)
+                (set c (freaduint-be f 8))
+                (inc cnt)
+                (set @len (+ (* @len 0x80) (% c 0x80)))
+                until (= cnt 4)
+                until (< c 0x80) ))
+
+(defun parse-mp4-typestr-validate (type a b)
+        (parse-mp4-typestr-validate-a (flags-field type a b)) )
+
+(defun parse-mp4-typestr-validate-a (c)
+        (if (= c 0) '#' (int->char c)) )
+
+(defun parse-mp4-typestr (type)
+        (utf8-validate (ltrim (sprint
+                (parse-mp4-typestr-validate type 120 8)
+                (parse-mp4-typestr-validate type 112 8)
+                (parse-mp4-typestr-validate type 104 8)
+                (parse-mp4-typestr-validate type  96 8)
+                (parse-mp4-typestr-validate type  88 8)
+                (parse-mp4-typestr-validate type  80 8)
+                (parse-mp4-typestr-validate type  72 8)
+                (parse-mp4-typestr-validate type  64 8)
+                (parse-mp4-typestr-validate type  56 8)
+                (parse-mp4-typestr-validate type  48 8)
+                (parse-mp4-typestr-validate type  40 8)
+                (parse-mp4-typestr-validate type  32 8)
+                (parse-mp4-typestr-validate type  24 8)
+                (parse-mp4-typestr-validate type  16 8)
+                (parse-mp4-typestr-validate type   8 8)
+                (parse-mp4-typestr-validate type   0 8) )
+                '#' )))
+
+(defun parse-mp4-brand (fourcc)
+        (if (lmatch fourcc "3gp") "3G MP4"
+        (parse-mp4-brand0 fourcc
+        [ [ "isom" . "ISO Base Media" ]
+          [ "iso2" . "ISO Base Media" ]
+          [ "mp41" . "ISO Base Media" ]
+          [ "mp42" . "ISO Base Media" ]
+          [ "qt  " . "QuickTime" ]
+          [ "avc1" . "JVT AVC" ]
+          [ "mmp4" . "3G Mobile MP4" ]
+          [ "M4A " . "Apple AAC audio w/ iTunes info" ]
+          [ "M4P " . "AES encrypted audio" ]
+          [ "M4B " . "Apple audio w/ iTunes position" ]
+          [ "mp71" . "ISO 14496-12 MPEG-7" ] ])))
+
+(defun parse-mp4-brand0 (fourcc l)
+        (if (= l nil) undef
+        (if (= (car (car l)) fourcc) (cdr (car l))
+        (parse-mp4-brand0 fourcc (cdr l)) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-rec (fileinfo f endpos uptype level @arr)
+        (deflocal pos cnt size type)
+
+        (inc level)
+        (repeat (set pos (fpos f))
+                ;(parse-pb-gc)
+                (< pos endpos)
+                (parse-mp4-box f cnt size type)
+                (if (< size cnt)
+                then    ; FIXME segnalare box incompleto...
+                        ; (print "box incompleto" nl)
+                        (fail) )
+                (inc pos size)
+                (inc size -cnt)
+                (if (> pos endpos)
+                then    (dec-size size (- pos endpos))
+                        (set pos endpos) )
+                (case level of
+                        0       (parse-mp4-level0 fileinfo f size pos type uptype @arr)
+                        1       (parse-mp4-level1 fileinfo f size pos type uptype @arr)
+                        2       (parse-mp4-level2 fileinfo f size pos type uptype @arr)
+                        3       (parse-mp4-level3 fileinfo f size pos type uptype @arr)
+                        4       (parse-mp4-level4 fileinfo f size pos type uptype @arr)
+                        5       (parse-mp4-level5 fileinfo f size pos type uptype @arr) )
+                until (or (= pos endpos) (= (+ pos 1) endpos))
+                (fsetpos pos f) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-level0 (fileinfo f size pos type uptype @arr)
+        (case type of
+                0x66747970      ; ftyp
+                                (parse-mp4-ftyp fileinfo f size)
+                0x6d6f6f76      ; moov
+                                (parse-mp4-rec fileinfo f pos type 0 @arr)
+                0x66726565      ; free
+                                (skip)
+                0x77696465      ; wide
+                                (skip)
+                0x6d646174      ; mdat
+                                (skip)
+                default         (assoc-queue-unique fileinfo "unknown-ids"
+                                        (list type uptype 0) )))
+
+(defnet parse-mp4-level1 (fileinfo f size pos type uptype @arr)
+        (case uptype of
+                0x6d6f6f76      ; moov
+                                (case type of
+                                        0x6d766864      ; mvhd
+                                                        (parse-mp4-mvhd fileinfo f size)
+                                        0x7472616b      ; trak
+                                                        (seq    (set <fileinfo "track"> (assoc))
+                                                                (parse-mp4-rec fileinfo f pos type 1 @arr)
+                                                                (queue-put <fileinfo "tracks"> <fileinfo "track">)
+                                                                (assoc-clr fileinfo "track") )
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list type uptype 1) ))))
+
+(defnet parse-mp4-level2 (fileinfo f size pos type uptype @arr)
+        (case uptype of
+                0x7472616b      ; trak
+                                (case type of
+                                        0x746b6864      ; tkhd
+                                                        (parse-mp4-tkhd fileinfo f size)
+                                        0x74726566      ; tref
+                                                        (parse-mp4-tref fileinfo f size)
+                                        0x65647473      ; edts
+                                                        (parse-mp4-rec fileinfo f pos type 2 @arr)
+                                        0x6d646961      ; mdia
+                                                        (parse-mp4-rec fileinfo f pos type 2 @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list type uptype 2) ))))
+
+(defnet parse-mp4-level3 (fileinfo f size pos type uptype @arr)
+        (case uptype of
+                0x65647473      ; edts
+                                (case type of
+                                        0x656c7374      ; elst
+                                                        (parse-mp4-elst fileinfo f size)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list type uptype 3) ))
+                0x6d646961      ; mdia
+                                (case type of
+                                        0x6d646864      ; mdhd
+                                                        (parse-mp4-mdhd fileinfo f size)
+                                        0x68646c72      ; hdlr
+                                                        (parse-mp4-hdlr fileinfo f size)
+                                        0x6d696e66      ; minf
+                                                        (parse-mp4-rec fileinfo f pos type 3 @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list type uptype 3) ))))
+
+(defnet parse-mp4-level4 (fileinfo f size pos type uptype @arr)
+        (case uptype of
+                0x6d696e66      ; minf
+                                (case type of
+                                        0x766d6864      ; vmhd
+                                                        (parse-mp4-vmhd fileinfo f size)
+                                        0x64696e66      ; dinf
+                                                        (parse-mp4-rec fileinfo f pos type 4 @arr)
+                                        0x7374626c      ; stbl
+                                                        (parse-mp4-rec fileinfo f pos type 4 @arr)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list type uptype 4) ))))
+
+(defnet parse-mp4-level5 (fileinfo f size pos type uptype @arr)
+        (case uptype of
+                0x64696e66      ; dinf
+                                (case type of
+                                        0x64726566      ; dref
+                                                        (parse-mp4-dref fileinfo f size)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list type uptype 5) ))
+                0x7374626c      ; stbl
+                                (case type of
+                                        0x73747364      ; stsd
+                                                        (parse-mp4-stsd fileinfo f size)
+                                        0x73747473      ; stts
+                                                        (parse-mp4-stts fileinfo f size)
+                                        0x63747473      ; ctts
+                                                        (parse-mp4-ctts fileinfo f size)
+                                        0x73747363      ; stsc
+                                                        (parse-mp4-stsc fileinfo f size)
+                                        0x7374737a      ; stsz
+                                                        (parse-mp4-stsz fileinfo f size)
+                                        0x73747a32      ; stz2
+                                                        (parse-mp4-stz2 fileinfo f size)
+                                        0x7374636f      ; stco
+                                                        (parse-mp4-stco fileinfo f size)
+                                        0x636f3634      ; co64
+                                                        (parse-mp4-co64 fileinfo f size)
+                                        0x73747373      ; stss
+                                                        (parse-mp4-stss fileinfo f size)
+                                        0x73746470      ; sdtp
+                                                        (parse-mp4-sdtp fileinfo f size)
+                                        0x63736c67      ; cslg
+                                                        (parse-mp4-cslg fileinfo f size)
+                                        default         (assoc-queue-unique fileinfo "unknown-ids"
+                                                                (list type uptype 5) ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-ftyp (fileinfo f size)
+        (deflocal major-brand minor-version isomedia compatible-brands i)
+
+        (dec-size size 8)
+        (set major-brand (freaduint-be f 32))
+        (set minor-version (freaduint-be f 32))
+        (set isomedia (in major-brand [ 0x69736f6d 0x69736f32 ]))
+        (set major-brand (parse-mp4-brand (parse-mp4-typestr major-brand)))
+        (set compatible-brands (queue))
+        (opt*   (dec-size size 4)
+                (set i (freaduint-be f 32))
+                (set isomedia (or isomedia (in i [ 0x69736f6d 0x69736f32 ])))
+                (set i (parse-mp4-brand (parse-mp4-typestr i)))
+                (if (and (<> i undef) (<> i major-brand) (not (in i compatible-brands)))
+                then    (queue-put compatible-brands i) ))
+        (set <fileinfo "isomedia"> isomedia)
+        (set <fileinfo "major-brand"> major-brand)
+        (set <fileinfo "minor-version"> minor-version)
+        (set <fileinfo "compatible-brands"> compatible-brands) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-mvhd (fileinfo f size)
+        (deflocal version flags fieldsize timescale)
+
+        (parse-mp4-box-version f version flags size)
+        (set fieldsize (if (= version 0) 4 8))
+        (dec-size size (+ (* fieldsize 3) 4))
+        (set <fileinfo "creation-time"> (parse-mp4-date (freaduint-be f (* fieldsize 8))))
+        (set <fileinfo "modification-time"> (parse-mp4-date (freaduint-be f (* fieldsize 8))))
+        (set timescale (freaduint-be f 32))
+        (set <fileinfo "timescale"> timescale)
+        (set <fileinfo "duration"> (/ (freaduint-be f (* fieldsize 8)) timescale))
+
+        (skip) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-tkhd (fileinfo f size)
+        (deflocal trckinfo version flags fieldsize)
+
+        (set trckinfo <fileinfo "track">)
+        (parse-mp4-box-version f version flags size)
+        (set fieldsize (if (= version 0) 4 8))
+        (dec-size size (+ (* fieldsize 3) 8))
+        (skip (freaduint-be f (* fieldsize 8)))
+        (skip (freaduint-be f (* fieldsize 8)))
+        (set <trckinfo "track-id"> (freaduint-be f 32))
+        (skip (freaduint-be f 32)) ; reserved (0)
+        (skip (freaduint-be f (* fieldsize 8)))
+        (dec-size size 60)
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (set <trckinfo "DisplayWidth"> (freaduint-be f 32))
+        (set <trckinfo "DisplayHeight"> (freaduint-be f 32)) )
+
+(defnet parse-mp4-tref (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-elst (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-mdhd (fileinfo f size)
+        (deflocal trckinfo version flags fieldsize timescale)
+
+        (set trckinfo <fileinfo "track">)
+        (parse-mp4-box-version f version flags size)
+        (set fieldsize (if (= version 0) 4 8))
+        (dec-size size (+ (* fieldsize 3) 4))
+        (skip (freaduint-be f (* fieldsize 8)))
+        (skip (freaduint-be f (* fieldsize 8)))
+        (set timescale (freaduint-be f 32))
+        (set <trckinfo "duration"> (/ (freaduint-be f (* fieldsize 8)) timescale))
+        (dec-size size 2)
+        (skip (freaduint-be f 16)) ; FIXME v dovrebbe contenere il codice a 3 caratteri della lingua
+        (skip) )
+
+(defnet parse-mp4-hdlr (fileinfo f size)
+        (deflocal trckinfo version flags type)
+
+        (set trckinfo <fileinfo "track">)
+        (parse-mp4-box-version f version flags size)
+        (dec-size size 20)
+        (skip (freaduint-be f 32))
+        (set type (parse-mp4-typestr (freaduint-be f 32)))
+        (set <trckinfo "type"> type)
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (if (not <fileinfo "isomedia">)
+        then    (dec-size size 1)
+                (skip (freaduint-be f 8)) )
+        (set <trckinfo "name"> (utf8-validate (freadstr f size))) )
+
+(defnet parse-mp4-vmhd (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-dref (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-stsd (fileinfo f size)
+        (deflocal trckinfo type version flags sz codingname pos v i)
+
+        (opt    (set trckinfo <fileinfo "track">)
+                (set type <trckinfo "type">)
+                (stringp type)
+                (parse-mp4-box-version f version flags size)
+                (dec-size size 4)
+                (for i in 1 .. (freaduint-be f 32) do
+                        (parse-mp4-box f v sz codingname)
+                        (dec-size size sz)
+                        (dec-size sz v)
+                        (set pos (+ (fpos f) sz))
+                        (set <trckinfo "codingname"> (parse-mp4-typestr codingname))
+                        (dec-size sz 8)
+                        (skip (freaduint-be f 48))
+                        (skip (freaduint-be f 16)) ; data reference index
+                        (case type of
+                                "vide"  (parse-mp4-stsd-vide fileinfo trckinfo f sz)
+                                "soun"  (parse-mp4-stsd-soun fileinfo trckinfo f sz) )
+                        (fsetpos pos f) )))
+
+(defnet parse-mp4-stsd-vide (fileinfo trckinfo f size)
+        (deflocal version flags sz fourcc pos v priv-len priv-pos)
+
+        (assoc-inc fileinfo "video")
+        (dec-size size 70)
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (set <trckinfo "width"> (freaduint-be f 16))
+        (set <trckinfo "height"> (freaduint-be f 16))
+        (skip (freaduint-be f 32)) ; hor resol
+        (skip (freaduint-be f 32)) ; ver resol
+        (skip (freaduint-be f 32)) ; reserved (data size?)
+        (skip (freaduint-be f 16)) ; frame_count (1)
+        (set v (freaduint-be f 8))
+        (set <trckinfo "compressorname"> (sub 0 v (freadstr f 31)))
+        (skip (freaduint-be f 16)) ; depth
+        (skip (freaduint-be f 16)) ; color_table_id
+        (opt*   (> size 0)
+                (parse-mp4-box f v sz fourcc)
+                (dec-size size sz)
+                (dec-size sz v)
+                (set pos (+ (fpos f) sz))
+                (alt    (seq    (in fourcc [ 0x65736473 0x6d346473 ]) ; esds, m4ds
+                                (parse-mp4-box-version f version flags sz)
+                                (dec-size sz 1)
+                                (set v (freaduint-be f 8)) ; tag
+                                (if (= v 3)
+                                then    (parse-mp4-esds-descr-len f v sz)
+                                        (dec-size sz 3)
+                                        (skip (freaduint-be f 16)) ; esid
+                                        (skip (freaduint-be f 8))  ; stream priority
+                                else    (dec-size sz 2)
+                                        (skip (freaduint-be f 16)) ) ; esid
+                                (dec-size sz 1)
+                                (= (freaduint-be f 8) 4) ; tag
+                                (parse-mp4-esds-descr-len f v sz)
+                                (dec-size sz 14)
+                                (= (freaduint-be f 8) 32)  ; object_type_id
+                                (skip (freaduint-be f 8))  ; stream_type
+                                (skip (freaduint-be f 24)) ; buffer_size_db
+                                (skip (freaduint-be f 32)) ; max_bitrate
+                                (skip (freaduint-be f 32)) ; avg_bitrate
+                                (= (freaduint-be f 8) 5) ; tag
+                                (parse-mp4-esds-descr-len f v sz)
+                                (dec-size sz v)
+                                (set priv-len v)
+                                (set priv-pos (fpos f)) )
+                        (seq    (= fourcc 0x61766343) ; avcC
+                                (set priv-len sz)
+                                (set priv-pos (fpos f)) )
+                        (success) )
+                ;(print (parse-mp4-typestr fourcc) " " sz nl)
+                (fsetpos pos f) )
+        (if (and (integerp priv-len) (integerp priv-pos))
+        then    (set <trckinfo "priv-len"> priv-len)
+                (set <trckinfo "priv-pos"> priv-pos)
+                (set <trckinfo "low"> (vid-create f)) ))
+
+(defnet parse-mp4-stsd-soun (fileinfo trckinfo f size)
+        (deflocal v sz fourcc pos version flags type-id aud mp3 ac3 aac)
+
+        (assoc-inc fileinfo "audio")
+        (dec-size size 20)
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 32))
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 16))
+        (skip (freaduint-be f 32))
+        (set <trckinfo "frequency"> (/ (freaduint-be f 32) 0x10000))
+        (set mp3 false)
+        (set ac3 false)
+        (set aac false)
+        (opt*   (> size 0)
+                (parse-mp4-box f v sz fourcc)
+                (dec-size size sz)
+                (dec-size sz v)
+                (set pos (+ (fpos f) sz))
+
+                (opt    (= fourcc 0x65736473) ; esds
+
+                        (parse-mp4-box-version f version flags sz)
+                        (dec-size sz 1)
+                        (set v (freaduint-be f 8)) ; tag
+                        (if (= v 3)
+                        then    (parse-mp4-esds-descr-len f v sz)
+                                (dec-size sz 3)
+                                (skip (freaduint-be f 16)) ; esid
+                                (skip (freaduint-be f 8))  ; stream priority
+                        else    (dec-size sz 2)
+                                (skip (freaduint-be f 16)) ) ; esid
+                        (dec-size sz 1)
+                        (= (freaduint-be f 8) 4) ; tag
+                        (parse-mp4-esds-descr-len f v sz)
+                        (dec-size sz 14)
+                        (set type-id (freaduint-be f 8)) ; object_type_id
+                        (alt    (seq    (in type-id [ 0x69 0x6b ])
+                                        (set mp3 true) )
+                                (seq    (in type-id [ 0xa5 ])
+                                        (set ac3 true) )
+                                (seq    (in type-id [ 0x40 0x66 0x67 0x68 ])
+                                        (set aac true) ))
+                        (skip (freaduint-be f 8))  ; stream_type
+                        (skip (freaduint-be f 24)) ; buffer_size_db
+                        (skip (freaduint-be f 32)) ; max_bitrate
+                        (skip (freaduint-be f 32)) ; avg_bitrate
+                        (set v (freaduint-be f 8)) ; tag
+                        ; (in v [ 5 6 ]) ; FIXME
+                        (parse-mp4-esds-descr-len f v sz)
+                        (dec-size sz v)
+                        (if (in type-id [ 0x40 0x66 0x67 0x68 ])
+                        then    (if (not (audp aud))
+                                then    (set aud (aud-create f 7)) )
+                                (aud-parse-aac-header aud 2) ))
+                ;(print (parse-mp4-typestr fourcc) " " sz nl)
+                (fsetpos pos f) )
+        (if (or mp3 ac3 aac)
+        then    (if (not (audp aud))
+                then    (set aud (aud-create f (if aac 7 (if ac3 3 1)))) )
+                (set <trckinfo "low"> (cons aud (vid-create f))) ))
+
+(defnet parse-mp4-stts (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-ctts (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-stsc (fileinfo f size)
+        (deflocal version flags entry-cnt vid)
+
+        (parse-mp4-box-version f version flags size)
+        (dec-size size 4)
+        (set entry-cnt (freaduint-be f 32))
+        (dec-size size (* entry-cnt 12))
+        (set vid <fileinfo "track" "low">)
+        (if (not (vidp vid))
+        then    (set vid (cdr vid)) )
+        (if (vidp vid)
+        then    (vid-mp4-load-sample-to-chunk vid entry-cnt) ))
+
+(defnet parse-mp4-stsz (fileinfo f size)
+        (deflocal trckinfo vid version flags sample-size sample-cnt track-size)
+
+        (set trckinfo <fileinfo "track">)
+        (parse-mp4-box-version f version flags size)
+        (dec-size size 8)
+        (set sample-size (freaduint-be f 32))
+        (set sample-cnt (freaduint-be f 32))
+        (if (not (in "framerate" trckinfo))
+        then    (set <trckinfo "framerate"> (/ sample-cnt <trckinfo "duration">)) )
+        (set <trckinfo "TotalFrames"> sample-cnt)
+        (if (= sample-size 0)
+        then    (dec-size size (* 4 sample-cnt)) )
+        (set vid <trckinfo "low">)
+        (if (not (vidp vid))
+        then    (set vid (cdr vid)) )
+        (if (vidp vid)
+        then    (vid-mp4-load-sample-size vid sample-size sample-cnt false)
+                (set track-size (vid-mp4-track-size vid))
+        else    (if (> sample-size 0)
+                then    (set track-size (* sample-size sample-cnt))
+                else    ; si crea una nuova istanza temporanea vid e la si usa
+                        ; per calcolare la dimensione dello stream...
+                        (set vid (vid-create f))
+                        (vid-mp4-load-sample-size vid sample-size sample-cnt false)
+                        (set track-size (vid-mp4-track-size vid))
+                        (close vid) ))
+        (set <trckinfo "tracksize"> track-size)
+        (set <trckinfo "bitrate"> (/ track-size 125 <trckinfo "duration">)) )
+
+(defnet parse-mp4-stz2 (fileinfo f size)
+        (deflocal trckinfo vid version flags field-size sample-cnt track-size)
+
+        (set trckinfo <fileinfo "track">)
+        (parse-mp4-box-version f version flags size)
+        (dec-size size 8)
+        (skip (freaduint-be f 24)) ; reserved
+        (set field-size (freaduint-be f 8))
+        (in field-size [ 4 8 16 ])
+        (set sample-cnt (freaduint-be f 32))
+        (dec-size size (div (+ (* field-size sample-cnt) 4) 8))
+        (if (not (in "framerate" trckinfo))
+        then    (set <trckinfo "framerate"> (/ sample-cnt <trckinfo "duration">)) )
+        (set <trckinfo "TotalFrames"> sample-cnt)
+        (set vid <trckinfo "low">)
+        (if (not (vidp vid))
+        then    (set vid (cdr vid)) )
+        (if (vidp vid)
+        then    (vid-mp4-load-sample-size vid field-size sample-cnt true)
+                (set track-size (vid-mp4-track-size vid))
+        else    ; si crea una nuova istanza temporanea vid e la si usa
+                ; per calcolare la dimensione dello stream...
+                (set vid (vid-create f))
+                (vid-mp4-load-sample-size vid field-size sample-cnt true)
+                (set track-size (vid-mp4-track-size vid))
+                (close vid) )
+        (set <trckinfo "tracksize"> track-size)
+        (set <trckinfo "bitrate"> (/ track-size 125 <trckinfo "duration">)) )
+
+(defnet parse-mp4-stco (fileinfo f size)
+        (deflocal vid version flags entry-cnt)
+
+        (parse-mp4-box-version f version flags size)
+        (dec-size size 4)
+        (set entry-cnt (freaduint-be f 32))
+        (dec-size size (* 4 entry-cnt))
+        (set vid <fileinfo "track" "low">)
+        (if (not (vidp vid))
+        then    (set vid (cdr vid)) )
+        (if (vidp vid)
+        then    (vid-mp4-load-chunk-offset vid entry-cnt 32) ))
+
+(defnet parse-mp4-co64 (fileinfo f size)
+        (deflocal vid version flags entry-cnt)
+
+        (parse-mp4-box-version f version flags size)
+        (dec-size size 4)
+        (set entry-cnt (freaduint-be f 32))
+        (dec-size size (* 8 entry-cnt))
+        (set vid <fileinfo "track" "low">)
+        (if (not (vidp vid))
+        then    (set vid (cdr vid)) )
+        (if (vidp vid)
+        then    (vid-mp4-load-chunk-offset vid entry-cnt 64) ))
+
+(defnet parse-mp4-stss (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-sdtp (fileinfo f size)
+        (skip) )
+
+(defnet parse-mp4-cslg (fileinfo f size)
+        (skip) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet parse-mp4-bitstreams (info fileinfo f)
+        (deflocal complete a-cnt a-demux vid aud cnt off i)
+
+        (set complete <info "complete">)
+        (set a-cnt 0)
+        (set a-demux <info "audio-demux">)
+        (for i in <fileinfo "tracks"> do
+                (if (= <i "type"> "soun")
+                then    (inc a-cnt) )
+                (set vid <i "low">)
+                (alt    (seq    (= a-demux undef)
+                                (vidp vid)
+                                (fsetpos <i "priv-pos"> f)
+                                (vid-parse-matroska vid <i "priv-len">)
+                                (set cnt 0)
+                                (opt*   (<> (vid-bitstream-type vid) undef)
+                                        (set off (vid-mp4-sample-offset vid cnt))
+                                        (<> off undef)
+                                        (fsetpos off f)
+                                        (vid-parse vid (vid-mp4-sample-size vid cnt))
+                                        (inc cnt)
+                                        (if (= (% cnt 300) 0)
+                                        then    (parse-progress info f "mp4" undef) )
+                                        (or complete (< cnt (parse-video-frame-min))) ))
+                        (seq    (set aud (car vid))
+                                (audp aud)
+                                (set vid (cdr vid))
+                                (set <i "low"> aud)
+                                (if (= a-cnt a-demux)
+                                then    (aud-fpout-begin aud <info "audio-fpout">
+                                                (cfg-get-or-default "audio-saving-skip-garbage"
+                                                        <info "default"> ))
+                                        (set <info "audio-aud"> aud)
+                                else    (= a-demux undef) )
+                                (set cnt 0)
+                                (opt*   (set off (vid-mp4-sample-offset vid cnt))
+                                        (<> off undef)
+                                        (fsetpos off f)
+                                        (aud-parse aud (vid-mp4-sample-size vid cnt))
+                                        (inc cnt)
+                                        (if (= (% cnt 300) 0)
+                                        then    (parse-progress info f "mp4" undef) )
+                                        (or complete (< cnt (parse-video-frame-min))) )
+                                (close vid) )
+                        (success) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
