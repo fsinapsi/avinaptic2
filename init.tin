@@ -57,6 +57,8 @@
                 (alt    (lmatch p "-psn")       ; questa specie di opzione va ignorata
                         (seq    (lmatch remove p "--cfg=")
                                 (set <info "cfg-path"> p) )
+                        (seq    (lmatch remove p "--mgc=")
+                                (set <info "mgc-path"> p) )
                         (seq    (= (cli) true)
                                 (= p "--drf")
                                 (set <info "cli-drf"> true) )
@@ -265,10 +267,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet init-magic (info)
+        (deflocal path)
+
         (if (not (magic-available))
-        then    (if (cfg-get-or-default "enabled-magic" <info "default">)
-                then    (gtk-message-warning undef
-                                $"`libmagic' is not available (disable `Magic' to remove this message)" ))))
+        then    (opt    (set path <info "mgc-path">)
+                        (stringp path)
+                        (magic-reinit path) )
+                (if (not (magic-available))
+                then    (if (cfg-get-or-default "enabled-magic" <info "default">)
+                        then    (gtk-message-warning undef
+                                        $"`libmagic' is not available (disable `Magic' to remove this message)" )))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

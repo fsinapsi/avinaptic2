@@ -13,6 +13,8 @@
         (set <info "indent-pattern"> (cfg-get-or-default "indent-pattern" <info "default">))
         (gtk-text-buffer-set-text <info "text"> "")
         (opt (dump0 info))
+        (if <info "complete">
+        then    (sdl-playwav-memory (raw-load-static "icons/ding.wav") 0.7) )
         (assoc-clr info "display")
         (assoc-clr info "indent-pattern") )
 
