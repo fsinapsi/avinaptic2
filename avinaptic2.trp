@@ -56,7 +56,9 @@
                 (dump info) )
         (gui-update info)
         (gtk-main)
-        (close _db) )
+        (close _db)
+        (send undef to <info "soundserver">)
+        (thread-join <info "soundserver">) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -9,15 +9,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet init (@info)
-        (if (and (cmingw) (not (cli)))
-        then    (set-icon "icons/avinaptic.ico") )
+        (set-icon "avinaptic.ico")
         (set @info (assoc))
         (if (not (cli)) then (init-lang))
         (init-parse-args @info)
         (init-db @info)
         (init-default @info)
         (init-values @info)
-        (init-magic @info) )
+        (init-magic @info)
+        (if (not (cli)) then (init-sound @info)) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -100,8 +100,8 @@
         (set path <info "cfg-path">)
         (if (= path undef)
         then    (if (cmingw)
-                then    (set path (+ (cwd) "/avinaptic.cfg"))
-                else    (set path (+ (getenv "HOME") "/.treep"))
+                then    (set path (callpathp "avinaptic.cfg"))
+                else    (set path (datapath))
                         (if (= path undef)
                         then    (gtk-message-error undef $"please define the environment variable `HOME'")
                                 (exit -1) )
@@ -109,7 +109,7 @@
                                 (mkdir path)
                                 (seq    (gtk-message-error undef (+ $"creation of directory `" (utf8-validate path) $"' failed"))
                                         (exit -1) ))
-                        (set path (+ path "/avinaptic.cfg")) ))
+                        (inc path "avinaptic.cfg") ))
         (set crea (not (pathexists path)))
         (set _db (sqlite3-open path))
         (if (= _db undef)
@@ -175,6 +175,7 @@
           [ "enabled-debug" . false ]
           [ "enabled-utf8bom" . true ]
           [ "text-info-editable" . false ]
+          [ "enabled-sound-alert" . true ]
           [ "audio-saving-skip-garbage" . false ]
           [ "user-data-grouped" . true ]
           [ "bbcode-color-section" . (pix-color 0x38 0xb6 0x0f) ]
@@ -277,6 +278,26 @@
                 then    (if (cfg-get-or-default "enabled-magic" <info "default">)
                         then    (gtk-message-warning undef
                                         $"`libmagic' is not available (disable `Magic' to remove this message)" )))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet init-sound (info)
+        (set <info "soundserver"> (thread-create (netptr init-sound-th) (thread-self))) )
+
+(defnet init-sound-th (th)
+        (deflocal snd)
+
+        (repeat (receive snd from th)
+                until (= snd undef)
+                (opt (sdl-playwav-memory snd 1.0)) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

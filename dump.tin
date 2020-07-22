@@ -13,8 +13,8 @@
         (set <info "indent-pattern"> (cfg-get-or-default "indent-pattern" <info "default">))
         (gtk-text-buffer-set-text <info "text"> "")
         (opt (dump0 info))
-        (if <info "complete">
-        then    (sdl-playwav-memory (raw-load-static "icons/ding.wav") 0.7) )
+        (if (and <info "complete"> (cfg-get-or-default "enabled-sound-alert" <info "default">))
+        then    (send (raw-load-static "alert.wav") to <info "soundserver">) )
         (assoc-clr info "display")
         (assoc-clr info "indent-pattern") )
 
@@ -629,9 +629,13 @@
                  (<> magic undef) )
         then    (dump-section info "Magic")
                 (opt*   (search "\\012- " magic i)
-                        (dump-field info $"File type" (sub 0 i magic))
+                        (dump-magic-single info (sub 0 i magic))
                         (set magic (sub (+ i 6) (maxint) magic)) )
-                (dump-field info $"File type" magic) ))
+                (dump-magic-single info magic) ))
+
+(defnet dump-magic-single (info s)
+        (if (not (lmatch s " (Lepton "))
+        then    (dump-field info $"File type" s) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

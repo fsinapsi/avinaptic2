@@ -416,7 +416,12 @@
                 (set w (gtk-check-button-new $"editable"))
                 (cfg-setup-frame hb w $"`Copy/paste' text")
                 (set <cfg-info "tb-text-info-editable"> w)
-                (gtk-toggle-button-set-active w (cfg-get-or-default "text-info-editable" default-info)) )
+                (gtk-toggle-button-set-active w (cfg-get-or-default "text-info-editable" default-info))
+
+                (set w (gtk-check-button-new $"enabled"))
+                (cfg-setup-frame hb w "Sound alert")
+                (set <cfg-info "tb-sound-alert"> w)
+                (gtk-toggle-button-set-active w (cfg-get-or-default "enabled-sound-alert" default-info)) )
 
 (defnet cfg-setup-notebook-page5 (nb default-info cfg-info)
         (deflocal vb hb hb2 w i)
@@ -668,6 +673,7 @@
         (cfg-set "enabled-debug" (gtk-toggle-button-get-active <cfg-info "tb-debug">))
         (cfg-set "enabled-utf8bom" (gtk-toggle-button-get-active <cfg-info "tb-utf8bom">))
         (cfg-set "text-info-editable" (gtk-toggle-button-get-active <cfg-info "tb-text-info-editable">))
+        (cfg-set "enabled-sound-alert" (gtk-toggle-button-get-active <cfg-info "tb-sound-alert">))
         (cfg-set "user-data-grouped" (gtk-toggle-button-get-active <cfg-info "tb-user-data-grouped">))
         (cfg-set "percent-line-length" (gtk-spin-button-get-value <cfg-info "sb-percent-line-length">))
         (cfg-set "percent-line-normalize" (gtk-toggle-button-get-active <cfg-info "tb-percent-line-normalize">))
