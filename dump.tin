@@ -751,9 +751,8 @@
                 (+ <fileinfo "DocType">
                    (if <fileinfo "multisegment"> " (multisegment)" "") ))
         (dump-date info "Production date" <fileinfo "DateUTC">)
-        (set i <fileinfo "tracks-array">)
-        (dump-field info $"Total tracks" (length i))
-        (for i in i do
+        (dump-field info $"Total tracks" (length <fileinfo "tracks-array">))
+        (for i in <fileinfo "tracks-array"> do
                 (set j <(cdr i) "CodecID">)
                 (set k <(cdr i) "Name">)
                 (dump-field info (+ $"Track nr. " (car i))
@@ -770,9 +769,10 @@
         (if (cfg-get-or-default "enabled-debug" <info "default">)
         then    (for i in <fileinfo "unknown-ids"> do
                         (dump-field info "[debug] unknown id"
-                                (+ (int->hex <i 0>)
+                                (sprint (int->hex <i 0>)
                                 " (parent: " (if (= <i 1> undef) "none" (int->hex <i 1>))
                                 ", level: " <i 2> ")" )))))
+
 
 (defnet dump-generic-mp4 (info fileinfo)
         (deflocal i j k l m)

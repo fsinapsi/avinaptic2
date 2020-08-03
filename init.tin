@@ -270,14 +270,18 @@
 (defnet init-magic (info)
         (deflocal path)
 
+        (opt    (not (magic-available))
+                (set path <info "mgc-path">)
+                (stringp path)
+                (magic-reinit path) )
+        (opt    (not (magic-available))
+                (set path (search-path-default "magic.mgc"))
+                (stringp path)
+                (magic-reinit path) )
         (if (not (magic-available))
-        then    (opt    (set path <info "mgc-path">)
-                        (stringp path)
-                        (magic-reinit path) )
-                (if (not (magic-available))
-                then    (if (cfg-get-or-default "enabled-magic" <info "default">)
-                        then    (gtk-message-warning undef
-                                        $"`libmagic' is not available (disable `Magic' to remove this message)" )))))
+        then    (if (cfg-get-or-default "enabled-magic" <info "default">)
+                then    (gtk-message-warning undef
+                                $"`libmagic' is not available (disable `Magic' to remove this message)" ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -171,7 +171,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet parse-mp4-rec (fileinfo f endpos uptype level @arr)
-        (deflocal pos cnt size type)
+        (deflocal pos cnt size type c)
 
         (inc level)
         (repeat (set pos (fpos f))
@@ -194,7 +194,16 @@
                         3       (parse-mp4-level3 fileinfo f size pos type uptype @arr)
                         4       (parse-mp4-level4 fileinfo f size pos type uptype @arr)
                         5       (parse-mp4-level5 fileinfo f size pos type uptype @arr) )
-                until (or (= pos endpos) (= (+ pos 1) endpos))
+                until (= pos endpos)
+                (if (= level 0)
+                then    ; questo hack serve per riconoscere mp4 a cui sono stati
+                        ; appesi in fondo degli zeri
+                        (fsetpos pos f)
+                        (for cnt in pos .. (- endpos 1) do
+                                (set c (freaduint-be f 8))
+                                until (<> c 0) )
+                else    (set c 1) )
+                until (= c 0)
                 (fsetpos pos f) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
