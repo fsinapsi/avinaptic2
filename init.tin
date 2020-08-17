@@ -13,12 +13,13 @@
 (defnet init ()
         (set _kv (assoc))
         (set <_kv "da-chiudere"> (queue))
+        (init-sound-before)
         (init-parse-args)
         (init-db)
         (init-default)
         (init-values)
         (init-magic)
-        (init-sound) )
+        (init-sound-after) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -277,10 +278,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet init-sound ()
+(defnet init-sound-before ()
         (if (not (cli))
-        then    (set <_kv "enabled-sound-alert"> (cfg-get-or-default "enabled-sound-alert" <_kv "default">))
+        then    (set <_kv "enabled-sound-alert"> false)
                 (set <_kv "soundserver"> (thread-create (netptr init-sound-th) (thread-self))) ))
+
+(defnet init-sound-after ()
+        (if (not (cli))
+        then    (set <_kv "enabled-sound-alert"> (cfg-get-or-default "enabled-sound-alert" <_kv "default">)) ))
 
 (defnet init-sound-th (th)
         (deflocal snd)

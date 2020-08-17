@@ -96,7 +96,7 @@
 (defnet gui-dropfiles-cb (self path num x y)
         (deflocal i)
 
-        (gui-disable-main-window)
+        (gui-disable-menu)
         (opt    (= num 0)
                 (<> <_kv "last-dropped-path"> path)
                 (set <_kv "last-dropped-path"> path)
@@ -186,7 +186,8 @@
                         (gui-setup-menu-item-low $"Set credits position" (netptr gui-credits-cb) "credits") ))
                 (gui-setup-submenu (+ "&" $"Help") (iup-menu
                         (gui-setup-menu-item $"Check for updates" (netptr gui-check-for-updates-cb))
-                        (gui-setup-menu-item $"About AVInaptic" (netptr info-cb)) )))))
+                        (gui-setup-menu-item $"About AVInaptic" (netptr info-cb)) ))))
+        (set <_kv "menu" "widget"> @menu) )
 
 (defun gui-setup-submenu (title menu) net gui-setup-submenu)
 (defnet gui-setup-submenu (title menu @submenu)
@@ -280,8 +281,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet gui-disable-main-window ()
-        (iup-set-bool <_kv "win"> "ACTIVE" false) )
+(defnet gui-disable-menu ()
+        (iup-set-bool <_kv "menu" "widget"> "ACTIVE" false) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -296,8 +297,8 @@
 (defnet gui-update ()
         (deflocal menu-info btn-info drf srt i)
 
-        (iup-set-bool <_kv "win"> "ACTIVE" true)
         (set menu-info <_kv "menu">)
+        (iup-set-bool <menu-info "widget"> "ACTIVE" true)
         (set btn-info <_kv "toolbar">)
         (set i (<> <_kv "path"> undef))
         (if i
@@ -340,7 +341,7 @@
 (defnet gui-open-cb (self)
         (deflocal path i)
 
-        (gui-disable-main-window)
+        (gui-disable-menu)
         (opt    (set path (iup-choose-file-open self $"Open file" (cfg-get "path") undef true))
                 (sound-pop)
                 (stringp path)
@@ -420,7 +421,7 @@
         (deflocal vid fps)
 
         (opt    (<> <_kv "path"> undef)
-                (gui-disable-main-window)
+                (gui-disable-menu)
                 (opt    (if <_kv "complete">
                         then    (info->vid-fps _kv 0 vid fps)
                                 (drf vid fps)
@@ -443,7 +444,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet gui-credits-cb (self)
-        (gui-disable-main-window)
+        (gui-disable-menu)
         (opt (gui-credits-low self))
         (gui-update) )
 
@@ -529,7 +530,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet gui-save-audio-as-cb (self)
-        (gui-disable-main-window)
+        (gui-disable-menu)
         (opt (gui-save-audio-as-low self))
         (gui-update) )
 
@@ -595,7 +596,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet gui-save-attachment-as-cb (self)
-        (gui-disable-main-window)
+        (gui-disable-menu)
         (opt (gui-save-attachment-as-low self))
         (gui-update) )
 
@@ -655,7 +656,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet gui-save-attachments-in-cb (self)
-        (gui-disable-main-window)
+        (gui-disable-menu)
         (opt (gui-save-attachments-in-low self))
         (gui-update) )
 
@@ -713,7 +714,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet gui-check-for-updates-cb (self)
-        (gui-disable-main-window)
+        (gui-disable-menu)
         (opt (gui-check-for-updates-low self))
         (gui-update) )
 
