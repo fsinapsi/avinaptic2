@@ -8,185 +8,67 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet gui-setup (info)
-        (deflocal win vb w)
+(defnet gui ()
+        (deflocal dlg x y w h w-corr h-corr)
 
-        (set win (gtk-window-new))
-        (set <info "win"> win)
-        (gtk-window-set-title win "AVInaptic (" (version) ")")
-        (gtk-container-set-border-width win 5)
-        (gtk-signal-connect win "delete-event" (netptr win-delete) win "win-main")
-        (gtk-signal-connect win "destroy" (netptr gui-main-destroy))
-        (gtk-drag-dest-set win (netptr gui-drag-and-drop) info)
+        (set x (cfg-get "win-main-position"))
+        (set y (cdr x))
+        (set x (car x))
+        (set w (cfg-get-num "win-main-width"))
+        (set h (cfg-get-num "win-main-height"))
+        (if (not (integerp x))
+        then    (set x (cmacro IUP_CENTER)) )
+        (if (not (integerp y))
+        then    (set y (cmacro IUP_CENTER)) )
+        (if (not (integerp w))
+        then    (set w 800) )
+        (if (not (integerp h))
+        then    (set h 600) )
 
-        (set vb (gtk-vbox-new false 5))
-        (gtk-container-add win vb)
+   ;     (print w "x" h "+" x "+" y nl)
 
-                (gui-setup-menu-bar info w win)
-                (gtk-box-pack-start vb w false false 0)
+        (set dlg (iup-dialog (gui-setup-main)))
 
-                (gui-setup-toolbar info w)
-                (gtk-box-pack-start vb w false false 0)
+        (set <_kv "win"> dlg)
+        (iup-set-attribute-handle undef "PARENTDIALOG" dlg)
+        (iup-set-str-attribute dlg "TITLE" (+ "AVInaptic (" (version) ")"))
+        (iup-set-attribute-handle dlg "MENU" (gui-setup-menu))
+        (iup-set-callback dlg "CLOSE_CB" (netptr gui-close-cb))
+        (iup-set-callback dlg "DROPFILES_CB" (netptr gui-dropfiles-cb))
+        (iup-set-callback dlg "K_ANY" (netptr gui-kb-cb))
+        (iup-set-str-attribute dlg "FULLSCREEN" "NO")
 
-                (gui-setup-text info w)
-                (gtk-box-pack-start vb w true true 0)
+        (if (<> <_kv "path"> undef)
+        then    (parse)
+                (dump) )
 
-        (apply-win-settings win "win-main" 800 600)
-        (gtk-widget-show-all win) )
+        (gui-update)
 
-(defnet gui-main-destroy ()
-        (gtk-main-quit) )
+        (iup-set-str-attribute dlg "RASTERSIZE" (sprint w "x" h))
+        (iup-show-xy dlg x y)
+        (set w-corr (- w (iup-get-int dlg "RASTERSIZE")))
+        (set h-corr (- h (iup-get-int2 dlg "RASTERSIZE")))
+        (iup-set-str-attribute dlg "USERSIZE")
 
-(defnet gui-drag-and-drop (info s)
-        (deflocal path i)
+        (iup-main-loop)
 
-        (opt    (set s (adjust-path s))
-                (repeat (search "file://" s i)
-                        (set s (sub (+ i (if (cmingw) 8 7)) (maxint) s))
-                        (search "\r" s i)
-                        (set path (sub 0 i s))
-                        until (and (pathexists path) (isreg path)) )
-                (alt    (seq    (avcp info)
-                                (parse-log-x264 path i)
-                                (set <info "log-x264"> i) )
-                        (seq    (set <info "path"> path)
-                                (parse info) ))
-                (dump info) )
-        (gui-update info) )
+        (sound-pop)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        (set x (iup-get-int dlg "SCREENPOSITION"))
+        (set y (iup-get-int2 dlg "SCREENPOSITION"))
+        (set w (+ (iup-get-int dlg "RASTERSIZE") w-corr))
+        (set h (+ (iup-get-int2 dlg "RASTERSIZE") h-corr))
 
-(defnet gui-setup-menu-bar (info @menu-bar win)
-        (deflocal menu-info item menu i)
+   ;    (print w "x" h "+" x "+" y nl)
 
-        (set menu-info (assoc))
-        (set <info "menu"> menu-info)
-        (set @menu-bar (gtk-menu-bar-new))
+        (sqlite3-begin _db)
+        (alt    (seq    (cfg-set "win-main-width" w)
+                        (cfg-set "win-main-height" h)
+                        (cfg-set "win-main-position" (cons x y))
+                        (sqlite3-end _db) )
+                (sqlite3-rollback _db) )
 
-        (set item (gtk-menu-item-new "File"))
-
-        (set menu (gtk-menu-new))
-
-                (set i (gtk-menu-item-new $"Open file"))
-                (gtk-signal-connect i "activate" (netptr gui-open) info)
-                (gtk-menu-shell-append menu i)
-
-                (set i (gtk-menu-item-new $"Save the report"))
-                (gtk-signal-connect i "activate" (netptr gui-save) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "save"> i)
-
-                (set i (gtk-menu-item-new $"Save the report as..."))
-                (gtk-signal-connect i "activate" (netptr gui-save-as) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "save-as"> i)
-
-                (set i (gtk-menu-item-new $"Export (BBcode)..."))
-                (gtk-signal-connect i "activate" (netptr gui-save-as-bbcode) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "save-as-bbcode"> i)
-
-                (set i (gtk-menu-item-new $"Export (HTML)..."))
-                (gtk-signal-connect i "activate" (netptr gui-save-as-html) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "save-as-html"> i)
-
-                (set i (gtk-menu-item-new $"Preferences"))
-                (gtk-signal-connect i "activate" (netptr cfg) info)
-                (gtk-menu-shell-append menu i)
-
-                (set i (gtk-menu-item-new $"Exit"))
-                (gtk-signal-connect i "activate" (netptr win-close) win "win-main")
-                (gtk-menu-shell-append menu i)
-
-        (gtk-menu-item-set-submenu item menu)
-        (gtk-menu-shell-append @menu-bar item)
-
-        (set item (gtk-menu-item-new $"Copy"))
-
-        (set menu (gtk-menu-new))
-
-                (set i (gtk-menu-item-new $"Report"))
-                (gtk-signal-connect i "activate" (netptr gui-save-window) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "copy"> i)
-
-                (set i (gtk-menu-item-new "BBcode"))
-                (gtk-signal-connect i "activate" (netptr gui-save-bbcode-window) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "copy-bbcode"> i)
-
-                (set i (gtk-menu-item-new "HTML"))
-                (gtk-signal-connect i "activate" (netptr gui-save-html-window) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "copy-html"> i)
-
-        (gtk-menu-item-set-submenu item menu)
-        (gtk-menu-shell-append @menu-bar item)
-
-        (set item (gtk-menu-item-new "Demux"))
-
-        (set menu (gtk-menu-new))
-
-                (set i (gtk-menu-item-new $"Save audio track as..."))
-                (gtk-signal-connect i "activate" (netptr gui-save-audio-as) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "save-audio-as"> i)
-
-                (set i (gtk-menu-item-new $"Save attachment as..."))
-                (gtk-signal-connect i "activate" (netptr gui-save-attachment-as) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "save-attachment-as"> i)
-
-                (set i (gtk-menu-item-new $"Save attachments in..."))
-                (gtk-signal-connect i "activate" (netptr gui-save-attachments-in) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "save-attachments-in"> i)
-
-        (gtk-menu-item-set-submenu item menu)
-        (gtk-menu-shell-append @menu-bar item)
-
-        (set item (gtk-menu-item-new "Misc"))
-
-        (set menu (gtk-menu-new))
-
-                (set i (gtk-menu-item-new $"Full analysis/DRF Graph"))
-                (gtk-signal-connect i "activate" (netptr gui-drf) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "drf"> i)
-
-                (set i (gtk-menu-item-new $"Set credits position"))
-                (gtk-signal-connect i "activate" (netptr gui-credits) info)
-                (gtk-menu-shell-append menu i)
-                (set <menu-info "credits"> i)
-
-        (gtk-menu-item-set-submenu item menu)
-        (gtk-menu-shell-append @menu-bar item)
-
-
-
-        (set item (gtk-menu-item-new $"Help"))
-
-        (set menu (gtk-menu-new))
-
-                (set i (gtk-menu-item-new $"Check for updates"))
-                (gtk-signal-connect i "activate" (netptr gui-check-for-updates) info)
-                (gtk-menu-shell-append menu i)
-
-                (set i (gtk-menu-item-new $"About AVInaptic"))
-                (gtk-signal-connect i "activate" (netptr info) info)
-                (gtk-menu-shell-append menu i)
-
-        (gtk-menu-item-set-submenu item menu)
-        (gtk-menu-shell-append @menu-bar item) )
+        (close dlg) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -198,54 +80,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet gui-setup-toolbar (info @w)
-        (deflocal btn-info)
-
-        (set btn-info (assoc))
-        (set <info "toolbar"> btn-info)
-        (set @w (gtk-hbox-new false 0))
-
-        (gui-setup-button info $"open file" @w
-                (pix-load-static "icons/22x22/document-open-5.png")
-                (netptr gui-open) )
-
-        (gui-setup-button-assoc info $"save the report" @w
-                (pix-load-static "icons/22x22/document-save-5.png")
-                (netptr gui-save)
-                btn-info "btn-save" )
-
-        (gui-setup-button-assoc info $"save the report as..." @w
-                (pix-load-static "icons/22x22/document-save-as-5.png")
-                (netptr gui-save-as)
-                btn-info "btn-save-as" )
-
-        (gui-setup-button-assoc info $"full analysis/drf graph" @w
-                (pix-load-static "icons/22x22/drf.png")
-                (netptr gui-drf)
-                btn-info "btn-drf" )
-
-        (gui-setup-button-assoc info $"edit subtitles" @w
-                (pix-load-static "icons/22x22/application-x-applix-word.png")
-                (netptr srt)
-                btn-info "btn-srt" )
-
-        (gui-setup-button info $"preferences" @w
-                (pix-load-static "icons/22x22/configure-2.png")
-                (netptr cfg) ))
-
-(defnet gui-setup-button-assoc (info tip box pix net btn-info key)
-        (deflocal btn)
-
-        (set btn (gtk-button-new))
-        (gtk-box-pack-start box btn false false 0)
-        (gtk-container-add btn (gtk-image-new-from-pixbuf pix))
-        (gtk-signal-connect btn "clicked" net info)
-        (gtk-widget-set-tooltip-text btn tip)
-        (if (<> btn-info undef)
-        then    (set <btn-info key> btn) ))
-
-(defnet gui-setup-button (info tip box pix net)
-        (gui-setup-button-assoc info tip box pix net undef undef) )
+(defnet gui-close-cb (self)
+        (iup-exit-loop) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -257,542 +93,430 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet gui-setup-text (info @w)
-        (deflocal text default-info)
-
-        (set @w (gtk-scrolled-window-new undef undef))
-        (gtk-scrolled-window-set-policy @w
-                (cmacro GTK_POLICY_AUTOMATIC)
-                (cmacro GTK_POLICY_AUTOMATIC) )
-
-        (set text (gtk-text-view-new))
-        (set <info "text"> text)
-        (gtk-container-add @w text)
-        (gtk-text-view-set-editable text false)
-        (gtk-text-view-set-cursor-visible text false)
-        (gtk-text-view-set-wrap-mode text (cmacro GTK_WRAP_NONE))
-        (set default-info <info "default">)
-        (gtk-widget-modify-font text (cfg-get-or-default "font" default-info))
-        (gtk-widget-modify-base text (cmacro GTK_STATE_NORMAL)
-                (cfg-get-or-default "color-background" default-info) )
-        (gtk-drag-dest-unset text) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-update (info)
-        (deflocal menu-info btn-info drf srt i)
-
-        (set menu-info <info "menu">)
-        (set btn-info <info "toolbar">)
-        (set i (<> <info "path"> undef))
-        (if i
-        then    (if <info "complete">
-                then    (set drf (vidp (info->vid info 0)))
-                else    (set drf (in <info "filetype"> [ "avi" "mkv" "mp4" "flv" ])) )
-                (set srt (= <info "filetype"> "srt"))
-        else    (set drf false)
-                (set srt false) )
-        (gtk-widget-set-sensitive <menu-info "save"> i)
-        (gtk-widget-set-sensitive <menu-info "save-as"> i)
-        (gtk-widget-set-sensitive <menu-info "save-as-bbcode"> i)
-        (gtk-widget-set-sensitive <menu-info "save-as-html"> i)
-        (gtk-widget-set-sensitive <menu-info "copy"> i)
-        (gtk-widget-set-sensitive <menu-info "copy-bbcode"> i)
-        (gtk-widget-set-sensitive <menu-info "copy-html"> i)
-        (gtk-widget-set-sensitive <menu-info "drf"> drf)
-        (gtk-widget-set-sensitive <menu-info "credits"> (<> <info "correction"> undef))
-        (gtk-widget-set-sensitive <menu-info "save-audio-as">
-                (> (length (info->aud-queue info)) 0) )
-        (gtk-widget-set-sensitive <btn-info "btn-save"> i)
-        (gtk-widget-set-sensitive <btn-info "btn-save-as"> i)
-        (gtk-widget-set-sensitive <btn-info "btn-drf"> drf)
-        (gtk-widget-set-sensitive <btn-info "btn-srt"> srt)
-
-        (set i (and (= <info "filetype"> "mkv")
-                    (> (length <info "fileinfo" "Attachments">)
-                        0 )))
-        (gtk-widget-set-sensitive <menu-info "save-attachment-as"> i)
-        (gtk-widget-set-sensitive <menu-info "save-attachments-in"> i)
-
-        (gtk-widget-grab-focus <info "text">) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-open (info)
-        (deflocal fc path i)
-
-        (set fc (gtk-file-chooser-dialog-new $"Open file"
-                        (cmacro GTK_FILE_CHOOSER_ACTION_OPEN)
-                        <info "win"> ))
-        (gtk-window-set-modal fc true)
-        (gtk-file-chooser-set-show-hidden fc true)
-        (apply-win-settings fc "win-open" 640 480)
-        (set path (cfg-get "path"))
-        (repeat until (= path undef)
-                (alt    (seq    (pathexists path)
-                                (if (isdir path)
-                                then    (gtk-file-chooser-set-current-folder fc path)
-                                else    (gtk-file-chooser-select-filename fc path) )
-                                (clr path) )
-                        (seq    (rtrim path '/')
-                                (search "/" path i (maxint))
-                                (set path (sub 0 (+ i 1) path)) )
-                        (clr path) ))
-        (set i (gtk-dialog-run fc))
-        (set path (gtk-file-chooser-get-filename fc))
-        (save-win-settings fc "win-open")
-        (if (or (<> i (cmacro GTK_RESPONSE_ACCEPT)) (= path undef))
-        then    (close fc)
-                (gtk-widget-grab-focus <info "text">)
-                (fail) )
-        (close fc)
-        (alt    (seq    (avcp info)
-                        (parse-log-x264 path i)
-                        (set <info "log-x264"> i) )
-                (seq    (set <info "path"> path)
-                        (parse info) ))
-        (dump info)
-        (gui-update info) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-save (info)
-        (deflocal win path)
-
-        (set path <info "path">)
-        (<> path undef)
-        (set win <info "win">)
-        (gui-save0 info (netptr dump-file) win (path-change-extension path "txt")) )
-
-(defnet gui-save-as (info)
-        (gui-save-as0 info (netptr dump-file)) )
-
-(defnet gui-save-as-bbcode (info)
-        (gui-save-as0 info (netptr dump-bbcode)) )
-
-(defnet gui-save-as-html (info)
-        (gui-save-as0 info (netptr dump-html)) )
-
-(defnet gui-save-as0 (info net)
-        (deflocal win path fc i)
-
-        (set path <info "path">)
-        (<> path undef)
-        (set win <info "win">)
-        (set fc (gtk-file-chooser-dialog-new $"Save as..."
-                        (cmacro GTK_FILE_CHOOSER_ACTION_SAVE)
-                        win ))
-        (gtk-window-set-modal fc true)
-        (gtk-window-set-position fc (cmacro GTK_WIN_POS_CENTER))
-        (gtk-file-chooser-set-show-hidden fc true)
-        (set path (path-change-extension path (if (= net (netptr dump-html)) "html" "txt")))
-        (if (<> path undef)
-        then    (gtk-file-chooser-set-filename fc path)
-                (gtk-file-chooser-set-current-name fc (fullpath->name path)) )
-        (if (<> (gtk-dialog-run fc) (cmacro GTK_RESPONSE_ACCEPT))
-        then    (close fc)
-                (gui-update info)
-                (fail) )
-        (set path (gtk-file-chooser-get-filename fc))
-        (close fc)
-        (gui-save0 info net win path) )
-
-(defnet gui-save0 (info net win path)
-        (if (pathexists path)
-        then    (gtk-question win (+ $"File `" path $"' exists." nl
-                                     $"Do you want to overwrite it?" )))
-        (opt    (call net info path)
-                (gtk-message-info win (+ $"Report saved as `" path "'")) )
-        (gui-update info) )
-
-(defnet gui-save-window (info)
-        (dump-file info undef) )
-
-(defnet gui-save-bbcode-window (info)
-        (dump-bbcode info undef) )
-
-(defnet gui-save-html-window (info)
-        (dump-html info undef) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-drf (info)
-        (deflocal vid fps)
-
-        (<> <info "path"> undef)
-        (if <info "complete">
-        then    (opt    (info->vid-fps info 0 vid fps)
-                        (drf info vid fps) )
-        else    (<> <info "path"> undef)
-                (in <info "filetype"> [ "avi" "mkv" "mp4" "flv" ])
-                (alt    (seq    (set fps <info "log-x264">)
-                                (parse0 info true)
-                                (set <info "log-x264"> fps) )
-                        (gtk-message-error <info "win"> $"The analysis failed") )
-                (dump info) )
-        (gui-update info) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-credits (info)
-        (opt (gui-credits-basic info))
-        (gtk-widget-grab-focus <info "text">) )
-
-(defnet gui-credits-basic (info)
-        (deflocal a max win vb hb cb spin-a spin-b i)
-
-        (set win <info "correction">)
-        (<> win undef)
-
-        (set a (array (length win) 3))
-        (set max 1)
-        (for i in win do
-                (set <a (for-pos) 0> <i 0>)
-                (set <a (for-pos) 1> <i 1>)
-                (set <a (for-pos) 2> <i 2>)
-                (if (vidp <i 0>)
-                then    (set max (max max (length <i 0>))) ))
-
-        (set win (gtk-window-new))
-        (gtk-window-set-transient-for win <info "win">)
-        (gtk-window-set-modal win true)
-        (gtk-window-set-title win $"Set credits position")
-        (gtk-container-set-border-width win 8)
-
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-                (gtk-box-pack-start hb (gtk-label-new $"Starting video frames to ignore:") false false 0)
-                (gtk-box-pack-start hb (gtk-label-new "") true true 0)
-                (set spin-a (gtk-spin-button-new-with-range 0 (- max 1) 1))
-                (gtk-spin-button-set-numeric spin-a true)
-                (gtk-spin-button-set-wrap spin-a false)
-                (gtk-box-pack-start hb spin-a false false 0)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-                (gtk-box-pack-start hb (gtk-label-new $"Ending video frames to ignore:") false false 0)
-                (gtk-box-pack-start hb (gtk-label-new "") true true 0)
-                (set spin-b (gtk-spin-button-new-with-range 0 (- max 1) 1))
-                (gtk-spin-button-set-numeric spin-b true)
-                (gtk-spin-button-set-wrap spin-b false)
-                (gtk-box-pack-start hb spin-b false false 0)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-                (set cb (gtk-combo-box-text-new))
-                (gtk-box-pack-start hb cb false false 0)
-                (for i in a do
-                        (gtk-combo-box-text-append-text cb (+ $"Video track" $" nr. " (+ (for-pos) 1))) )
-                (gtk-signal-connect cb "changed" (netptr gui-credits-changed-track) cb spin-a spin-b a)
-                (gtk-combo-box-set-active cb 0)
-
-                (gtk-box-pack-end hb (gtk-iconed-button
-                        (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                        $"Cancel"
-                        (netptr gui-credits-cancel)
-                        win ) false false 0 )
-
-                (gtk-box-pack-end hb (gtk-iconed-button
-                        (pix-load-static "icons/16x16/dialog-apply.png")
-                        "Ok"
-                        (netptr gui-credits-ok)
-                        (list info a win cb spin-a spin-b) ) false false 0 )
-
-        (gtk-signal-connect spin-a "changed" (netptr gtk-credits-changed) cb spin-a a 1)
-        (gtk-signal-connect spin-b "changed" (netptr gtk-credits-changed) cb spin-b a 2)
-
-        (gtk-widget-show-all win) )
-
-(defnet gui-credits-changed-track (cb spin-a spin-b a)
-        (set cb (gtk-combo-box-get-active cb))
-        (gtk-spin-button-set-value spin-a <a cb 1>)
-        (gtk-spin-button-set-value spin-b <a cb 2>) )
-
-(defnet gtk-credits-changed (cb spin a i)
-        (set <a (gtk-combo-box-get-active cb) i> (gtk-spin-button-get-value spin)) )
-
-(defnet gui-credits-cancel (win)
-        (close win) )
-
-(defnet gui-credits-ok (w)
-        (deflocal info a win vid i)
-
-        (set info <w 0>)
-        (set a <w 1>)
-        (set win <w 2>)
-        (gtk-credits-changed <w 3> <w 4> a 1)
-        (gtk-credits-changed <w 3> <w 5> a 2)
-        (for i in a do
-                (set vid <i 0>)
-                (if (and (vidp vid) (>= (+ <i 1> <i 2>) (length vid)))
-                then    (gtk-message-warning win $"Invalid data")
-                        (fail) ))
-        (set <info "correction"> a)
-        (close win)
-        (dump info)
-        (gui-update info) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-save-audio-as (info)
-        (opt (gui-save-audio-as-basic info))
-        (gtk-widget-grab-focus <info "text">) )
-
-(defnet gui-save-audio-as-basic (info)
-        (deflocal q win vb hb fc cb i)
-
-        (set q (info->aud-queue info))
-        (> (length q) 0)
-
-        (set win (gtk-window-new))
-        (gtk-window-set-transient-for win <info "win">)
-        (gtk-window-set-modal win true)
-        (gtk-window-set-title win $"Save audio track as...")
-        (gtk-signal-connect win "delete-event" (netptr win-delete) win "win-save")
-        (gtk-container-set-border-width win 8)
-
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
-
-        (set fc (gtk-file-chooser-widget-new (cmacro GTK_FILE_CHOOSER_ACTION_SAVE)))
-        (gtk-box-pack-start vb fc true true 0)
-        (gtk-file-chooser-set-show-hidden fc true)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-                (set cb (gtk-combo-box-text-new))
-                (gtk-box-pack-start hb cb false false 0)
-                (for i in q do
-                        (gtk-combo-box-text-append-text cb (+ $"Audio track"
-                                (if (> (length q) 1) (+ $" nr. " <i 0>) "")
-                                " (" <i 2> ")" )))
-                (gtk-signal-connect cb "changed" (netptr gui-save-audio-as-changed)
-                        <info "path"> q cb fc )
-                (gtk-combo-box-set-active cb 0)
-
-                (gtk-box-pack-end hb (gtk-iconed-button
-                        (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                        $"Cancel"
-                        (netptr gui-save-audio-as-cancel)
-                        win ) false false 0 )
-
-                (gtk-box-pack-end hb (gtk-iconed-button
-                        (pix-load-static "icons/16x16/dialog-apply.png")
-                        $"Save"
-                        (netptr gui-save-audio-as-ok)
-                        (list fc cb win q info) ) false false 0 )
-
-        (apply-win-settings win "win-save" 640 480)
-        (gtk-widget-show-all win) )
-
-(defnet gui-save-audio-as-changed (path q cb fc)
-        (set q <q (gtk-combo-box-get-active cb)>)
-        (set path (path-change-extension path
-                (sprint <q 0> "." (utf8-tolower <q 2>)) ))
-        (gtk-file-chooser-set-filename fc path)
-        (gtk-file-chooser-set-current-name fc (fullpath->name path)) )
-
-(defnet gui-save-audio-as-cancel (win)
-        (win-close win "win-save") )
-
-(defnet gui-save-audio-as-ok (info)
-        (deflocal path f tr win tmp-info)
-
-        (set path (gtk-file-chooser-get-filename <info 0>))
-        (<> path undef)
-        (set tr <info 3 (gtk-combo-box-get-active <info 1>) 0>)
-        (set win <info 2>)
-        (set info <info 4>)
-        (if (pathexists path)
-        then    (gtk-question win (+ $"File `" path $"' exists." nl
-                                     $"Do you want to overwrite it?" )))
-        (set f (fcreate path))
-        (if (= f undef)
-        then    (gtk-message-error win $"can't create file")
-                (fail) )
-        (win-close win "win-save")
-        (set tmp-info (assoc))
-        (set <tmp-info "path"> <info "path">)
-        (set <tmp-info "audio-demux"> tr)
-        (set <tmp-info "audio-fpout"> f)
-        (alt    (seq    (<> f undef)
-                        (parse0 tmp-info true)
-                        (not <tmp-info "aborted">)
-                        (aud-fpout-end <tmp-info "audio-aud">)
-                        (close f)
-                        (gtk-message-info <info "win"> (+ $"Audio track saved as `" path "'")) )
-                (seq    (close f)
-                        (remove path)
-                        (if (not <tmp-info "aborted">)
-                        then    (gtk-message-error <info "win">
-                                        $"operation failed" ))))
-        (parse-clean tmp-info) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-save-attachment-as (info)
-        (opt (gui-save-attachment-as-basic info))
-        (gtk-widget-grab-focus <info "text">) )
-
-(defnet gui-save-attachment-as-basic (info)
-        (deflocal q win vb hb fc cb i)
-
-        (= <info "filetype"> "mkv")
-        (set q <info "fileinfo" "Attachments">)
-        (> (length q) 0)
-
-        (set win (gtk-window-new))
-        (gtk-window-set-transient-for win <info "win">)
-        (gtk-window-set-modal win true)
-        (gtk-window-set-title win $"Save attachment as...")
-        (gtk-signal-connect win "delete-event" (netptr win-delete) win "win-save")
-        (gtk-container-set-border-width win 8)
-
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
-
-        (set fc (gtk-file-chooser-widget-new (cmacro GTK_FILE_CHOOSER_ACTION_SAVE)))
-        (gtk-box-pack-start vb fc true true 0)
-        (gtk-file-chooser-set-show-hidden fc true)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-                (set cb (gtk-combo-box-text-new))
-                (gtk-box-pack-start hb cb false false 0)
-                (for i in q do
-                        (gtk-combo-box-text-append-text cb (+ $"Attachment"
-                                (if (> (length q) 1) (+ $" nr. " (+ (for-pos) 1)) "") )))
-                (gtk-signal-connect cb "changed" (netptr gui-save-attachment-as-changed)
-                        <info "path"> q cb fc )
-                (gtk-combo-box-set-active cb 0)
-
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                $"Cancel"
-                (netptr gui-save-audio-as-cancel)
-                win ) false false 0 )
-
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-apply.png")
-                $"Save"
-                (netptr gui-save-attachment-as-ok)
-                (list fc cb win q info) ) false false 0 )
-
-        (apply-win-settings win "win-save" 640 480)
-        (gtk-widget-show-all win) )
-
-(defnet gui-save-attachment-as-changed (path q cb fc)
+(defnet gui-dropfiles-cb (self path num x y)
         (deflocal i)
 
-        (set cb (gtk-combo-box-get-active cb))
-        (set q (utf8-validate <q cb "FileName">))
-        (if (= q undef)
-        then    (set q (+ "attachment-" (+ cb 1)))
-        else    (find-and-replace q "/" "-")
-                (find-and-replace q "\\" "-") )
-        (alt    (seq    (search "/" path i (maxint))
-                        (set path (sub 0 i path)) )
-                (set path (cwd)) )
-        (set path (+ path "/" q))
-        (gtk-file-chooser-set-filename fc path)
-        (gtk-file-chooser-set-current-name fc (fullpath->name path)) )
+        (gui-disable-main-window)
+        (opt    (= num 0)
+                (<> <_kv "last-dropped-path"> path)
+                (set <_kv "last-dropped-path"> path)
+                (find-and-replace path "%20" " ")
+                (not (isdir (realpath path)))
+                (alt    (seq    (avcp)
+                                (parse-log-x264 path i)
+                                (set <_kv "log-x264"> i) )
+                        (seq    (set <_kv "path"> path)
+                                (parse) ))
+                (dump))
+        (gui-update) )
 
-(defnet gui-save-attachment-as-ok (info)
-        (deflocal path tr win f g raw)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-        (set path (gtk-file-chooser-get-filename <info 0>))
-        (<> path undef)
-        (set tr <<info 3 (gtk-combo-box-get-active <info 1>)> "FileData">)
-        (set win <info 2>)
-        (set info <info 4>)
-        (if (pathexists path)
-        then    (gtk-question win (+ $"File `" path $"' exists." nl
-                                     $"Do you want to overwrite it?" )))
-        (set f (fopenro <info "path">))
-        (if (= f undef)
-        then    (gtk-message-error win
-                        (+ <info "path">
-                           $": file not found" ))
+(defnet gui-kb-cb (dlg c)
+        (case c of
+                (cmacro K_cQ)           (iup-exit-loop)
+                (cmacro K_cO)           (gui-open-cb dlg)
+                (cmacro K_cS)           (gui-save-cb dlg)
+             ;   (cmacro K_UP)           (skip)
+             ;   (cmacro K_DOWN)         (skip)
+             ;   (cmacro K_PGUP)         (skip)
+             ;   (cmacro K_PGDN)         (skip)
+             ;   (cmacro K_HOME)         (skip)
+             ;   (cmacro K_END)          (skip)
+             ;   (cmacro K_cHOME)        (skip)
+             ;   (cmacro K_cEND)         (skip)
+                default                 (fail) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun gui-setup-main () net gui-setup-main)
+(defnet gui-setup-main (@wid)
+        (set @wid (iup-vbox (gui-setup-toolbar) (gui-setup-text)))
+        (iup-set-str-attribute @wid "MARGIN" "5x5") )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun gui-setup-menu () net  gui-setup-menu)
+(defnet gui-setup-menu (@menu)
+        (set <_kv "menu"> (assoc))
+        (set @menu (iup-menu
+                (gui-setup-submenu "&File" (iup-menu
+                        (gui-setup-menu-item (+ $"Open file" (if (cmingw) "\t" "\t\t\t\t\t") "Ctrl+O") (netptr gui-open-cb))
+                        (gui-setup-menu-item-low (+ $"Save the report" (if (cmingw) "\t" "\t\t\t") "Ctrl+S") (netptr gui-save-cb) "save")
+                        (gui-setup-menu-item-low (+ $"Save the report as..." (if (cmingw) "\t" "\t\t\t") "") (netptr gui-save-as-cb) "save-as")
+                        (gui-setup-menu-item-low $"Export (BBcode)..." (netptr gui-save-as-bbcode-cb) "save-as-bbcode")
+                        (gui-setup-menu-item-low $"Export (HTML)..." (netptr gui-save-as-html-cb) "save-as-html")
+                        (gui-setup-menu-item $"Preferences" (netptr cfg-cb))
+                        (iup-separator)
+                        (gui-setup-menu-item (+ $"Exit" (if (cmingw) "\t" "\t\t\t\t\t\t") "Ctrl+Q") (netptr iup-cancel-cb)) ))
+                (gui-setup-submenu (+ "&" $"Copy") (iup-menu
+                        (gui-setup-menu-item-low $"Report" (netptr gui-save-window-cb) "copy")
+                        (gui-setup-menu-item-low "BBcode" (netptr gui-save-bbcode-window-cb) "copy-bbcode")
+                        (gui-setup-menu-item-low "HTML" (netptr gui-save-html-window-cb) "copy-html") ))
+                (gui-setup-submenu "&Demux" (iup-menu
+                        (gui-setup-menu-item-low $"Save audio track as..." (netptr gui-save-audio-as-cb) "save-audio-as")
+                        (gui-setup-menu-item-low $"Save attachment as..." (netptr gui-save-attachment-as-cb) "save-attachment-as")
+                        (gui-setup-menu-item-low $"Save attachments in..." (netptr gui-save-attachments-in-cb) "save-attachments-in") ))
+                (gui-setup-submenu "&Misc" (iup-menu
+                        (gui-setup-menu-item-low $"Full analysis/DRF Graph" (netptr gui-drf-cb) "drf")
+                        (gui-setup-menu-item-low $"Set credits position" (netptr gui-credits-cb) "credits") ))
+                (gui-setup-submenu (+ "&" $"Help") (iup-menu
+                        (gui-setup-menu-item $"Check for updates" (netptr gui-check-for-updates-cb))
+                        (gui-setup-menu-item $"About AVInaptic" (netptr info-cb)) )))))
+
+(defun gui-setup-submenu (title menu) net gui-setup-submenu)
+(defnet gui-setup-submenu (title menu @submenu)
+        (set @submenu (iup-submenu title menu)) )
+
+(defun gui-setup-menu-item (title cback)
+        (gui-setup-menu-item-low title cback undef) )
+
+(defun gui-setup-menu-item-low (title cback item-name) net gui-setup-menu-item-low)
+(defnet gui-setup-menu-item-low (title cback item-name @item)
+        (set @item (iup-item title))
+        (iup-set-callback @item "ACTION" cback)
+        (if (stringp item-name)
+        then    (set <_kv "menu" item-name> @item) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun gui-setup-toolbar () net gui-setup-toolbar)
+(defnet gui-setup-toolbar (@wid)
+        (deflocal q btn-info btn1 btn2 btn3 btn4 btn5 btn6)
+
+        (set q <_kv "da-chiudere">)
+        (set btn-info (assoc))
+        (set <_kv "toolbar"> btn-info)
+        (set btn1 (iup-button-icon undef (netptr gui-open-cb) (pix-load-static "22x22/document-open-5.png") q))
+        (set btn2 (iup-button-icon undef (netptr gui-save-cb) (pix-load-static "22x22/document-save-5.png") q))
+        (set btn3 (iup-button-icon undef (netptr gui-save-as-cb) (pix-load-static "22x22/document-save-as-5.png") q))
+        (set btn4 (iup-button-icon undef (netptr gui-drf-cb) (pix-load-static "22x22/drf.png") q))
+        (set btn5 (iup-button-icon undef (netptr srt-cb) (pix-load-static "22x22/application-x-applix-word.png") q))
+        (set btn6 (iup-button-icon undef (netptr cfg-cb) (pix-load-static "22x22/configure-2.png") q))
+        (iup-set-str-attribute btn1 "TIP" $"open file")
+        (iup-set-str-attribute btn2 "TIP" $"save the report")
+        (iup-set-str-attribute btn3 "TIP" $"save the report as...")
+        (iup-set-str-attribute btn4 "TIP" $"full analysis/drf graph")
+        (iup-set-str-attribute btn5 "TIP" $"edit subtitles")
+        (iup-set-str-attribute btn6 "TIP" $"preferences")
+        (set <btn-info "btn-save"> btn2)
+        (set <btn-info "btn-save-as"> btn3)
+        (set <btn-info "btn-drf"> btn4)
+        (set <btn-info "btn-srt"> btn5)
+        (set @wid (iup-hbox btn1 btn2 btn3 btn4 btn5 btn6)) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun gui-setup-text () net gui-setup-text)
+(defnet gui-setup-text (@wid)
+        (deflocal default-info bgcolor font)
+
+        (set default-info <_kv "default">)
+        (set bgcolor (cfg-get-or-default "color-background" default-info))
+        (set font (cfg-get-or-default "font" default-info))
+        (set @wid (iup-text))
+        (set <_kv "text"> @wid)
+        (iup-set-str-attribute @wid "MULTILINE" "YES")
+        (iup-set-str-attribute @wid "READONLY" (if (cmingw) "YES" "NO"))
+        (iup-set-str-attribute @wid "CANFOCUS" "NO")
+        (iup-set-str-attribute @wid "EXPAND" "YES")
+        (iup-set-str-attribute @wid "WORDWRAP" "NO")
+        (iup-set-str-attribute @wid "FORMATTING" "YES")
+        (iup-set-str-attribute @wid "PADDING" "2x0")
+        (iup-set-str-attribute @wid "FONT" font)
+        (iup-set-str-attribute @wid "VALUE" "")
+        (iup-set-str-attribute @wid "BGCOLOR" (sprint (pix-color-red bgcolor) " " (pix-color-green bgcolor) " " (pix-color-blue bgcolor)))
+        (iup-set-int @wid "VISIBLELINES" 1)
+        (iup-set-int @wid "VISIBLECOLUMNS" 1)
+        (iup-set-callback @wid "DROPFILES_CB" (netptr gui-dropfiles-cb)) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet gui-disable-main-window ()
+        (iup-set-bool <_kv "win"> "ACTIVE" false) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet gui-update ()
+        (deflocal menu-info btn-info drf srt i)
+
+        (iup-set-bool <_kv "win"> "ACTIVE" true)
+        (set menu-info <_kv "menu">)
+        (set btn-info <_kv "toolbar">)
+        (set i (<> <_kv "path"> undef))
+        (if i
+        then    (if <_kv "complete">
+                then    (set drf (vidp (info->vid _kv 0)))
+                else    (set drf (in <_kv "filetype"> [ "avi" "mkv" "mp4" "flv" ])) )
+                (set srt (= <_kv "filetype"> "srt"))
+        else    (set drf false)
+                (set srt false) )
+        (iup-set-bool <menu-info "save"> "ACTIVE" i)
+        (iup-set-bool <menu-info "save-as"> "ACTIVE" i)
+        (iup-set-bool <menu-info "save-as-bbcode"> "ACTIVE" i)
+        (iup-set-bool <menu-info "save-as-html"> "ACTIVE" i)
+        (iup-set-bool <menu-info "copy"> "ACTIVE" i)
+        (iup-set-bool <menu-info "copy-bbcode"> "ACTIVE" i)
+        (iup-set-bool <menu-info "copy-html"> "ACTIVE" i)
+        (iup-set-bool <menu-info "drf"> "ACTIVE" drf)
+        (iup-set-bool <menu-info "credits"> "ACTIVE" (<> <_kv "correction"> undef))
+        (iup-set-bool <menu-info "save-audio-as"> "ACTIVE" (> (length (info->aud-queue)) 0))
+        (iup-set-bool <btn-info "btn-save"> "ACTIVE" i)
+        (iup-set-bool <btn-info "btn-save-as"> "ACTIVE" i)
+        (iup-set-bool <btn-info "btn-drf"> "ACTIVE" drf)
+        (iup-set-bool <btn-info "btn-srt"> "ACTIVE" srt)
+        (set i (and (= <_kv "filetype"> "mkv")
+                    (> (length <_kv "fileinfo" "Attachments">)
+                        0 )))
+        (iup-set-bool <menu-info "save-attachment-as"> "ACTIVE" i)
+        (iup-set-bool <menu-info "save-attachments-in"> "ACTIVE" i) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet gui-open-cb (self)
+        (deflocal path i)
+
+        (gui-disable-main-window)
+        (opt    (set path (iup-choose-file-open self $"Open file" (cfg-get "path") undef true))
+                (sound-pop)
+                (stringp path)
+                (alt    (seq    (avcp)
+                                (parse-log-x264 path i)
+                                (set <_kv "log-x264"> i) )
+                        (seq    (set <_kv "path"> path)
+                                (parse) ))
+                (dump) )
+        (gui-update) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet gui-save-cb (self)
+        (deflocal path)
+
+        (set path <_kv "path">)
+        (if (<> path undef)
+        then    (gui-save-low (netptr dump-file) (path-change-extension path "txt") true) ))
+
+(defnet gui-save-as-cb (self)
+        (gui-save-as-low self (netptr dump-file)) )
+
+(defnet gui-save-as-bbcode-cb (self)
+        (gui-save-as-low self (netptr dump-bbcode)) )
+
+(defnet gui-save-as-html-cb (self)
+        (gui-save-as-low self (netptr dump-html)) )
+
+(defnet gui-save-as-low (self net)
+        (deflocal path)
+
+        (set path <_kv "path">)
+        (if (<> path undef)
+        then    (set path (iup-choose-file-save self $"Save as..." undef (path-change-extension path (if (= net (netptr dump-html)) "html" "txt")) true))
+                (sound-pop)
+                (if (stringp path)
+                then    (gui-save-low net path false) )))
+
+(defnet gui-save-low (net path confirm-request)
+        (opt    (if confirm-request
+                then    (if (pathexists path)
+                        then    (iup-message-confirm <_kv "win"> (+ $"File `" path $"' exists." nl
+                                                                    $"Do you want to overwrite it?" ))))
+                (call net path)
+                (iup-message-info <_kv "win"> (+ $"Report saved as" nl
+                                                 " `" path "'" ))))
+
+(defnet gui-save-window-cb (self)
+        (dump-file undef) )
+
+(defnet gui-save-bbcode-window-cb (self)
+        (dump-bbcode undef) )
+
+(defnet gui-save-html-window-cb (self)
+        (dump-html undef) )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet gui-drf-cb (self)
+        (deflocal vid fps)
+
+        (opt    (<> <_kv "path"> undef)
+                (gui-disable-main-window)
+                (opt    (if <_kv "complete">
+                        then    (info->vid-fps _kv 0 vid fps)
+                                (drf vid fps)
+                        else    (in <_kv "filetype"> [ "avi" "mkv" "mp4" "flv" ])
+                                (alt    (seq    (set fps <_kv "log-x264">)
+                                                (parse0 true)
+                                                (set <_kv "log-x264"> fps) )
+                                        (iup-message-error <_kv "win"> $"The analysis failed") )
+                                (dump) ))
+                (gui-update) ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet gui-credits-cb (self)
+        (gui-disable-main-window)
+        (opt (gui-credits-low self))
+        (gui-update) )
+
+(defnet gui-credits-low (self)
+        (deflocal dlg sb1 sb2 hbox1 hbox2 butbox tr a max q i)
+
+        (set a <_kv "correction">)
+        (arrayp a)
+
+        (if (= (length a) 1)
+        then    (set tr 0)
+        else    (set q (queue))
+                (for tr in 1 .. (length a) do
+                        (queue-put q (+ $"Video track" $" nr. " tr)) )
+                (set tr (iup-choose-menu q))
+                (integerp tr) )
+
+        (set a <a tr>)
+        (set max (length <a 0>))
+
+        (set q (queue))
+
+        (set sb1 (iup-text-spin 0 (- max 1) <a 1>))
+
+        (set hbox1 (iup-hbox
+                (iup-label $"Starting video frames to ignore:")
+                (iup-fill)
+                sb1 ))
+        (iup-set-str-attribute hbox1 "ALIGNMENT" "ACENTER")
+        (iup-set-int hbox1 "GAP" 6)
+
+        (set sb2 (iup-text-spin 0 (- max 1) <a 2>))
+
+        (set hbox2 (iup-hbox
+                (iup-label $"Ending video frames to ignore:")
+                (iup-fill)
+                sb2 ))
+        (iup-set-str-attribute hbox2 "ALIGNMENT" "ACENTER")
+        (iup-set-int hbox2 "GAP" 6)
+
+        (set butbox (iup-box-ok-cancel undef undef q))
+
+        (set i (iup-vbox
+                        hbox1
+                        hbox2
+                        butbox ))
+        (iup-set-str-attribute i "MARGIN" "4x4")
+        (iup-set-int i "GAP" 0)
+
+        (set dlg (iup-dialog i))
+        (iup-set-dlg-parent self dlg)
+        (iup-set-str-attribute dlg "TITLE" $"Set credits position")
+        (iup-set-bool dlg "DIALOGFRAME" true)
+        (iup-set-attribute-handle dlg "DEFAULTENTER" (iup-box-ok-cancel-btn-ok butbox))
+        (iup-set-attribute-handle dlg "DEFAULTESC" (iup-box-ok-cancel-btn-cancel butbox))
+
+        (iup-popup dlg (cmacro IUP_CENTERPARENT) (cmacro IUP_CENTERPARENT))
+
+        (sound-pop)
+        (set i (iup-get-int dlg "STATUS"))
+        (set sb1 (iup-get-int sb1 "SPINVALUE"))
+        (set sb2 (iup-get-int sb2 "SPINVALUE"))
+        (close dlg)
+        (iup-close-queue q)
+        (= i 1)
+
+        (if (>= (+ sb1 sb2) max)
+        then    (iup-message-error self $"Invalid data")
                 (fail) )
-        (set g (fcreate path))
-        (if (= g undef)
-        then    (close f)
-                (gtk-message-error win $"can't create file")
-                (fail) )
-        (win-close win "win-save")
-        (set win <info "win">)
-        (set raw (raw 65536))
-        (alt    (seq    (fsetpos (car tr) f)
-                        (filecopy-basic f g (cdr tr) raw)
-                        (close raw f g)
-                        (gtk-message-info win (+ $"Attachment saved as `" path "'")) )
-                (seq    (close raw f g)
-                        (remove path)
-                        (gtk-message-error win $"operation failed") )))
+
+        (set <a 1> sb1)
+        (set <a 2> sb2)
+        (dump) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -804,90 +528,179 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet gui-save-attachments-in (info)
-        (opt (gui-save-attachments-in-basic info))
-        (gtk-widget-grab-focus <info "text">) )
+(defnet gui-save-audio-as-cb (self)
+        (gui-disable-main-window)
+        (opt (gui-save-audio-as-low self))
+        (gui-update) )
 
-(defnet gui-save-attachments-in-basic (info)
-        (deflocal q win vb hb fc path i)
+(defnet gui-save-audio-as-low (self)
+        (deflocal q qq i a ipath opath dlg g kv)
 
-        (= <info "filetype"> "mkv")
-        (set q <info "fileinfo" "Attachments">)
+        (set q (info->aud-queue))
         (> (length q) 0)
 
-        (set win (gtk-window-new))
-        (gtk-window-set-transient-for win <info "win">)
-        (gtk-window-set-modal win true)
-        (gtk-window-set-title win $"Select destination folder")
-        (gtk-signal-connect win "delete-event" (netptr win-delete) win "win-save")
-        (gtk-container-set-border-width win 8)
+        (set ipath <_kv "path">)
+        (<> ipath undef)
 
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
+        (if (= (length q) 1)
+        then    (set i 0)
+        else    (set qq (queue))
+                (for i in 1 .. (length q) do
+                        (queue-put qq (+ $"Audio track" $" nr. " i)) )
+                (set i (iup-choose-menu qq))
+                (integerp i) )
+        (set a <q i>)
 
-        (set fc (gtk-file-chooser-widget-new (cmacro GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER)))
-        (gtk-box-pack-start vb fc true true 0)
-        (gtk-file-chooser-set-show-hidden fc true)
-        (set path <info "path">)
-        (opt    (search "/" path i (maxint))
-                (gtk-file-chooser-set-current-folder fc (sub 0 (+ i 1) path)) )
+        (set opath (iup-choose-file-save self $"Save audio track as..." ipath (path-change-extension ipath (sprint <a 0> "." (utf8-tolower <a 2>))) true))
+        (sound-pop)
+        (iup-flush)
+        (stringp opath)
+        (set dlg <_kv "win">)
+        (set g (fcreate opath))
+        (if (= g undef)
+        then    (iup-message-error dlg $"can't create file")
+                (fail) )
 
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
+        (set kv _kv)
+        (set _kv (assoc))
+        (set <_kv "win"> dlg)
+        (set <_kv "soundserver"> <kv "soundserver">)
+        (set <_kv "enabled-sound-alert"> false)
+        (set <_kv "path"> ipath)
+        (set <_kv "audio-demux"> <a 0>)
+        (set <_kv "audio-fpout"> g)
+        (alt    (seq    (parse0 true)
+                        (not <_kv "aborted">)
+                        (aud-fpout-end <_kv "audio-aud">)
+                        (close g)
+                        (set <_kv "enabled-sound-alert"> <kv "enabled-sound-alert">)
+                        (iup-message-info dlg (+ $"Audio track saved as" nl
+                                                 " `" opath "'" )))
+                (seq    (close g)
+                        (remove opath)
+                        (if (not <_kv "aborted">)
+                        then    (set <_kv "enabled-sound-alert"> <kv "enabled-sound-alert">)
+                                (iup-message-error dlg $"operation failed") )))
+        (parse-clean)
+        (set _kv kv) )
 
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                $"Cancel"
-                (netptr gui-save-audio-as-cancel)
-                win ) false false 0 )
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-apply.png")
-                "Ok"
-                (netptr gui-save-attachments-in-ok)
-                (list fc win q info) ) false false 0 )
+(defnet gui-save-attachment-as-cb (self)
+        (gui-disable-main-window)
+        (opt (gui-save-attachment-as-low self))
+        (gui-update) )
 
-        (apply-win-settings win "win-save" 640 480)
-        (gtk-widget-show-all win) )
+(defnet gui-save-attachment-as-low (self)
+        (deflocal q qq i a ipath opath dlg f g raw)
 
-(defnet gui-save-attachments-in-ok (info)
-        (deflocal path win q a p f g raw i)
+        (= <_kv "filetype"> "mkv")
+        (set q <_kv "fileinfo" "Attachments">)
+        (> (length q) 0)
 
-        (set path (gtk-file-chooser-get-filename <info 0>))
-        (= (isdir path) true)
-        (set win <info 1>)
-        (set q <info 2>)
-        (set info <info 3>)
-        (set f (fopenro <info "path">))
+        (set ipath <_kv "path">)
+        (<> ipath undef)
+
+        (if (= (length q) 1)
+        then    (set i 0)
+        else    (set qq (queue))
+                (for i in 1 .. (length q) do
+                        (queue-put qq (+ $"Attachment" $" nr. " i)) )
+                (set i (iup-choose-menu qq))
+                (integerp i) )
+        (set a <q i>)
+
+        (set opath (iup-choose-file-save self $"Save attachment as..." ipath <a "FileName"> true))
+        (sound-pop)
+        (iup-flush)
+        (stringp opath)
+        (set dlg <_kv "win">)
+        (set f (fopenro ipath))
         (if (= f undef)
-        then    (gtk-message-error win
-                        (+ <info "path">
-                           $": file not found" ))
+        then    (iup-message-error dlg
+                        (+ ipath $": file not found") )
+                (fail) )
+        (set g (fcreate opath))
+        (if (= g undef)
+        then    (close f)
+                (iup-message-error dlg $"can't create file")
+                (fail) )
+        (set raw (raw 65536))
+        (set i <a "FileData">)
+        (alt    (seq    (fsetpos (car i) f)
+                        (filecopy-basic f g (cdr i) raw)
+                        (close raw f g)
+                        (iup-message-info dlg (+ $"Attachment saved as" nl
+                                                 " `" opath "'" )))
+                (seq    (close raw f g)
+                        (remove opath)
+                        (iup-message-error dlg $"operation failed") )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet gui-save-attachments-in-cb (self)
+        (gui-disable-main-window)
+        (opt (gui-save-attachments-in-low self))
+        (gui-update) )
+
+(defnet gui-save-attachments-in-low (self)
+        (deflocal q path dest dlg f g raw a i)
+
+        (= <_kv "filetype"> "mkv")
+        (set q <_kv "fileinfo" "Attachments">)
+        (> (length q) 0)
+        (set path <_kv "path">)
+        (set dest (iup-choose-dir self $"Select destination folder" path true))
+        (sound-pop)
+        (iup-flush)
+        (stringp dest)
+        (set dlg <_kv "win">)
+        (set f (fopenro path))
+        (if (= f undef)
+        then    (iup-message-error dlg
+                        (+ path $": file not found") )
                 (fail) )
         (set raw (raw 65536))
         (for a in q do
-                (set p (utf8-validate <a "FileName">))
-                (if (= p undef)
-                then    (set p (+ "attachment-" (+ (for-pos) 1)))
-                else    (find-and-replace p "/" "-")
-                        (find-and-replace p "\\" "-") )
-                (set p (+ path "/" p))
-                (set g (fcreate p))
+                (set path (utf8-validate <a "FileName">))
+                (if (= path undef)
+                then    (set path (+ "attachment-" (+ (for-pos) 1)))
+                else    (find-and-replace path "/" "-")
+                        (find-and-replace path "\\" "-") )
+                (set path (+ dest path))
+
+                (set g (fcreate path))
                 (if (= g undef)
                 then    (close raw f)
-                        (gtk-message-error win $"can't create file")
+                        (iup-message-error dlg $"can't create file")
                         (fail) )
                 (set i <a "FileData">)
                 (alt    (seq    (fsetpos (car i) f)
                                 (filecopy-basic f g (cdr i) raw)
                                 (close g) )
                         (seq    (close raw f g)
-                                (remove p)
-                                (gtk-message-error win $"operation failed") )))
+                                (remove path)
+                                (iup-message-error dlg $"operation failed") )))
         (close raw f)
-        (win-close win "win-save")
-        (gtk-message-info <info "win">
-                (+ $"Attachment(s) saved in folder `" path "'") ))
+        (iup-message-info dlg
+                (+ $"Attachment(s) saved in folder" nl
+                   " `" dest "'" )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -899,18 +712,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet gui-check-for-updates (info)
-        (opt (gui-check-for-updates-basic info))
-        (gtk-widget-grab-focus <info "text">) )
+(defnet gui-check-for-updates-cb (self)
+        (gui-disable-main-window)
+        (opt (gui-check-for-updates-low self))
+        (gui-update) )
 
-(defnet gui-check-for-updates-basic (info)
-        (deflocal win s d i)
+(defnet gui-check-for-updates-low (self)
+        (deflocal s d i)
 
-        (set win <info "win">)
         (set i (rint (- (check-for-updates-delay)
                         (- (now) (cfg-get "last-check-for-updates")) )))
         (if (and (integerp i) (> i 0))
-        then    (gtk-message-warning win (+
+        then    (iup-message-warning self (+
                         $"Sorry, you have to wait " i $" seconds" ))
                 (fail) )
         (set s (download-as-string
@@ -919,10 +732,10 @@
                         (search "avinaptic2-20" s i)
                         (set d (str->date (sub (+ i 11) 8 s)))
                         (datep d)
-                        (gtk-message-info win (+
+                        (iup-message-info self (+
                                 $"this version: " (date-trunc (compile-time)) nl
                                 $"site version: " d nl ) ))
-                (seq    (gtk-message-warning win $"operation failed")
+                (seq    (iup-message-warning self $"operation failed")
                         (fail) ))
         (cfg-set "last-check-for-updates" (now)) )
 

@@ -8,16 +8,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet init (@info)
-        (set-icon "avinaptic.ico")
-        (set @info (assoc))
-        (if (not (cli)) then (init-lang))
-        (init-parse-args @info)
-        (init-db @info)
-        (init-default @info)
-        (init-values @info)
-        (init-magic @info)
-        (if (not (cli)) then (init-sound @info)) )
+(defglobal _db _kv)
+
+(defnet init ()
+        (set _kv (assoc))
+        (set <_kv "da-chiudere"> (queue))
+        (init-parse-args)
+        (init-db)
+        (init-default)
+        (init-values)
+        (init-magic)
+        (init-sound) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -29,58 +30,41 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet init-lang ()
-        (deflocal lang)
-
-        (set lang (gtk-get-default-language))
-        (if (lmatch lang "it")
-        then    (set-lang 1) ))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet init-parse-args (info)
+(defnet init-parse-args ()
         (deflocal i p path f)
 
         (if (cli)
-        then    (set <info "cli-drf"> false)
-                (set <info "cli-type"> "file") )
+        then    (set <_kv "cli-drf"> false)
+                (set <_kv "cli-type"> "file") )
         (for i in 1 .. (- (argc) 1) do
                 (set p (argv i))
                 (alt    (lmatch p "-psn")       ; questa specie di opzione va ignorata
                         (seq    (lmatch remove p "--cfg=")
-                                (set <info "cfg-path"> p) )
+                                (set <_kv "cfg-path"> p) )
                         (seq    (lmatch remove p "--mgc=")
-                                (set <info "mgc-path"> p) )
+                                (set <_kv "mgc-path"> p) )
                         (seq    (= (cli) true)
                                 (= p "--drf")
-                                (set <info "cli-drf"> true) )
+                                (set <_kv "cli-drf"> true) )
                         (seq    (= (cli) true)
                                 (= p "--bbcode")
-                                (in <info "cli-type"> [ "file" "bbcode" ])
-                                (set <info "cli-type"> "bbcode") )
+                                (in <_kv "cli-type"> [ "file" "bbcode" ])
+                                (set <_kv "cli-type"> "bbcode") )
                         (seq    (= (cli) true)
                                 (= p "--html")
-                                (in <info "cli-type"> [ "file" "html" ])
-                                (set <info "cli-type"> "html") )
+                                (in <_kv "cli-type"> [ "file" "html" ])
+                                (set <_kv "cli-type"> "html") )
                         (seq    (= (cli) true)
                                 (lmatch remove p "--out=")
-                                (set <info "cli-out-path"> p) )
+                                (set <_kv "cli-out-path"> p) )
                         (seq    (= path undef)
                                 (set f (fopenro p))
                                 (<> f undef)
                                 (close f)
                                 (set path (realpath p)) )
-                        (seq    (gtk-message-error undef (+ (utf8-validate p) $": invalid option"))
+                        (seq    (iup-message-error undef (+ (utf8-validate p) $": invalid option"))
                                 (exit -1) )))
-        (set <info "path"> path) )
+        (set <_kv "path"> path) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -92,28 +76,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defglobal _db)
-
-(defnet init-db (info)
+(defnet init-db ()
         (deflocal path crea)
 
-        (set path <info "cfg-path">)
+        (set path <_kv "cfg-path">)
         (if (= path undef)
         then    (if (cmingw)
                 then    (set path (callpathp "avinaptic.cfg"))
                 else    (set path (datapath))
                         (if (= path undef)
-                        then    (gtk-message-error undef $"please define the environment variable `HOME'")
+                        then    (iup-message-error undef $"please define the environment variable `HOME'")
                                 (exit -1) )
                         (alt    (pathexists path)
                                 (mkdir path)
-                                (seq    (gtk-message-error undef (+ $"creation of directory `" (utf8-validate path) $"' failed"))
+                                (seq    (iup-message-error undef (+ $"creation of directory `" (utf8-validate path) $"' failed"))
                                         (exit -1) ))
                         (inc path "avinaptic.cfg") ))
         (set crea (not (pathexists path)))
         (set _db (sqlite3-open path))
         (if (= _db undef)
-        then    (gtk-message-error undef (+ $"cannot open `" (utf8-validate path) "'"))
+        then    (iup-message-error undef (+ $"cannot open `" (utf8-validate path) "'"))
                 (exit -1) )
         (alt    (not crea)
                 (seq    (sqlite3-exec _db undef
@@ -121,11 +103,13 @@
                                         "key char unique not null," \
                                         "value char not null)" )
                         (cfg-set "date-run-first" (now))
-                        (gtk-message-info undef (+ $"the settings file was saved as `" (utf8-validate path) "'")) )
+                        (iup-message-info undef (+ $"the settings file was saved as" nl
+                                                   "`" (utf8-validate path) "'" )))
                 (seq    (close _db)
                         (remove path)
-                        (gtk-message-error undef $"creation of settings file failed")
+                        (iup-message-error undef $"creation of settings file failed")
                         (exit -1) ))
+        (da-chiudere _db)
         (cfg-set "date-run-last" (now))
         (cfg-inc "runs" 1)
         (set-lang (cfg-get-lang)) )
@@ -140,11 +124,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet init-default (info)
+(defnet init-default ()
         (deflocal default-info a)
 
         (set default-info (assoc-default (init-default)))
-        (set <info "default"> default-info)
+        (set <_kv "default"> default-info)
         (if (= (cfg-get "profiles") undef)
         then    (init-default-profiles a)
                 (cfg-set "profiles" a) ))
@@ -170,7 +154,7 @@
           [ "enabled-chapters" . true ]
           [ "chapter-display-grouped" . true ]
           [ "enabled-comment" . false ]
-          [ "enabled-profile-compliancy" . true ]
+          [ "enabled-profile-compliancy" . false ]
           [ "enabled-x264-log" . true ]
           [ "enabled-debug" . false ]
           [ "enabled-utf8bom" . true ]
@@ -244,18 +228,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet init-values (info)
+(defnet init-values ()
         (deflocal default-info)
 
-        (set default-info <info "default">)
-        (set <info "length-field"> (cfg-get-or-default-num "length-field" default-info))
-        (set <info "length-divider"> (cfg-get-or-default-num "length-divider" default-info))
-        (set <info "length-value"> (cfg-get-or-default-num "length-value" default-info))
-        (set <info "tile-pattern"> (cfg-get-or-default "tile-pattern" default-info))
-        (set <info "tile-left"> (cfg-get-or-default "tile-left" default-info))
-        (set <info "color-section"> (cfg-get-or-default "color-section" default-info))
-        (set <info "color-field"> (cfg-get-or-default "color-field" default-info))
-        (set <info "color-value"> (cfg-get-or-default "color-value" default-info)) )
+        (set default-info <_kv "default">)
+        (set <_kv "length-field"> (cfg-get-or-default-num "length-field" default-info))
+        (set <_kv "length-divider"> (cfg-get-or-default-num "length-divider" default-info))
+        (set <_kv "length-value"> (cfg-get-or-default-num "length-value" default-info))
+        (set <_kv "tile-pattern"> (cfg-get-or-default "tile-pattern" default-info))
+        (set <_kv "tile-left"> (cfg-get-or-default "tile-left" default-info))
+        (set <_kv "color-section"> (cfg-get-or-default "color-section" default-info))
+        (set <_kv "color-field"> (cfg-get-or-default "color-field" default-info))
+        (set <_kv "color-value"> (cfg-get-or-default "color-value" default-info)) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -267,11 +251,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet init-magic (info)
+(defnet init-magic ()
         (deflocal path)
 
         (opt    (not (magic-available))
-                (set path <info "mgc-path">)
+                (set path <_kv "mgc-path">)
                 (stringp path)
                 (magic-reinit path) )
         (opt    (not (magic-available))
@@ -279,8 +263,8 @@
                 (stringp path)
                 (magic-reinit path) )
         (if (not (magic-available))
-        then    (if (cfg-get-or-default "enabled-magic" <info "default">)
-                then    (gtk-message-warning undef
+        then    (if (cfg-get-or-default "enabled-magic" <_kv "default">)
+                then    (iup-message-warning undef
                                 $"`libmagic' is not available (disable `Magic' to remove this message)" ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -293,15 +277,49 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet init-sound (info)
-        (set <info "soundserver"> (thread-create (netptr init-sound-th) (thread-self))) )
+(defnet init-sound ()
+        (if (not (cli))
+        then    (set <_kv "enabled-sound-alert"> (cfg-get-or-default "enabled-sound-alert" <_kv "default">))
+                (set <_kv "soundserver"> (thread-create (netptr init-sound-th) (thread-self))) ))
 
 (defnet init-sound-th (th)
         (deflocal snd)
 
+        (opt (sdl-playwav-memory (raw-load-static "silence.wav") 1.0))
         (repeat (receive snd from th)
                 until (= snd undef)
-                (opt (sdl-playwav-memory snd 1.0)) ))
+                (opt    (truep <_kv "enabled-sound-alert">)
+                        (sdl-playwav-memory snd 1.0)) ))
+
+(defnet sound-quit ()
+        (if (not (cli))
+        then    (send undef to <_kv "soundserver">)
+                (thread-join <_kv "soundserver">) ))
+
+(defnet sound-alert ()
+        (if (not (cli))
+        then    (send (raw-load-static "alert.wav") to <_kv "soundserver">) ))
+
+(defnet sound-pop ()
+        (if (not (cli))
+        then    (send (raw-load-static "pop.wav") to <_kv "soundserver">) ))
+
+(defnet sound-info ()
+        (if (not (cli))
+        then    (send (raw-load-static "info.wav") to <_kv "soundserver">) ))
+
+(defnet sound-warning ()
+        ; FIXME
+        (if (not (cli))
+        then    (send (raw-load-static "error.wav") to <_kv "soundserver">) ))
+
+(defnet sound-error ()
+        (if (not (cli))
+        then    (send (raw-load-static "error.wav") to <_kv "soundserver">) ))
+
+(defnet sound-question ()
+        (if (not (cli))
+        then    (send (raw-load-static "question.wav") to <_kv "soundserver">) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

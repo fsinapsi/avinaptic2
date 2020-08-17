@@ -47,18 +47,11 @@
 (defun cli () false)
 
 (defnet avinaptic2 ()
-        (deflocal info)
-
-        (init info)
-        (gui-setup info)
-        (if (<> <info "path"> undef)
-        then    (parse info)
-                (dump info) )
-        (gui-update info)
-        (gtk-main)
-        (close _db)
-        (send undef to <info "soundserver">)
-        (thread-join <info "soundserver">) )
+        (set-icon "avinaptic.ico")
+        (iup-set-lang)
+        (init)
+        (gui)
+        (quit) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

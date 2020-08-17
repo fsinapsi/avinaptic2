@@ -306,7 +306,7 @@
                         (set size (max 0 (- newpos actpos))) )
 
                 (if (= (% (+ 1 <@arr 0>) (if (= a-demux undef) 300 1800)) 0)
-                then    (parse-progress <fileinfo "main-info"> f "mkv" undef) )
+                then    (parse-progress f "mkv" undef) )
 
                 (case id of
                         0xec    (skip) ; void
@@ -322,7 +322,7 @@
                 (or @complete (= @arr undef) (< <@arr 0> (parse-video-frame-min)))
                 (< newpos endpos)
                 (alt    (fsetpos newpos f)
-                        (seq    (gtk-message-error <fileinfo "main-info" "win">
+                        (seq    (iup-message-error <_kv "win">
                                         (+ "file seek at " newpos " failed!") )
                                 (fail) ))))
 

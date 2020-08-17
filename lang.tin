@@ -29,23 +29,15 @@
 1
 "sottotitoli"
 
-"Close"
-1
-"Chiudi"
-
-"Cancel"
-1
-"Annulla"
-
-"Data input"
-1
-"Inserimento dati"
-
 "Bitstream type (bs)"
 1
 "Tipo di bitstream (bs)"
 
 "Duration (bs)"
+1
+"Durata"
+
+"Duration"
 1
 "Durata"
 
@@ -60,22 +52,6 @@
 "About file"
 1
 "Info sul file"
-
-"Name"
-1
-"Nome"
-
-"Date"
-1
-"Data"
-
-"Size"
-1
-"Dimensione"
-
-"Note"
-1
-"Nota"
 
 "Analysis not complete"
 1
@@ -121,17 +97,9 @@
 1
 "Copia e incolla"
 
-"Yes"
-1
-(iso->utf8 "Sì")
-
 "Generic infos"
 1
 "Info generiche"
-
-"Duration"
-1
-"Durata"
 
 "Container"
 1
@@ -152,14 +120,6 @@
 "Incomplete AVI sections"
 1
 "Sezioni AVI incomplete"
-
-"Creation time"
-1
-"Data di creazione"
-
-"Modification time"
-1
-"Data di modifica"
 
 "unknown type"
 1
@@ -205,10 +165,6 @@
 1
 "MOLTO BASSA"
 
-"Width"
-1
-"Larghezza"
-
 "multiple of "
 1
 "multipla di "
@@ -224,10 +180,6 @@
 "BAD"
 1
 "MALE"
-
-"Height"
-1
-"Altezza"
 
 "Average DRF quality"
 1
@@ -296,10 +248,6 @@
 "it seems like the video doesn't start with a keyframe"
 1
 "sembra che il video non inizi con un keyframe"
-
-"Error"
-1
-"Errore"
 
 "Corrupt frames"
 1
@@ -513,9 +461,9 @@
 1
 "Decimali"
 
-"New profile:"
+"New profile"
 1
-"Nuovo profilo:"
+"Nuovo profilo"
 
 "Profile `"
 1
@@ -697,9 +645,9 @@
 1
 "Vuoi sovrascriverlo?"
 
-"Report saved as `"
+"Report saved as"
 1
-"Rapporto salvato come `"
+"Rapporto salvato come"
 
 "The analysis failed"
 1
@@ -721,9 +669,9 @@
 1
 "impossibile creare il file"
 
-"Audio track saved as `"
+"Audio track saved as"
 1
-"Traccia audio salvata come `"
+"Traccia audio salvata come"
 
 "operation failed"
 1
@@ -737,17 +685,17 @@
 1
 "Salva"
 
-"Attachment saved as `"
+"Attachment saved as"
 1
-"Allegato salvato come `"
+"Allegato salvato come"
 
 "Select destination folder"
 1
 "Seleziona la cartella di destinazione"
 
-"Attachment(s) saved in folder `"
+"Attachment(s) saved in folder"
 1
-"Allegati salvati nella cartella `"
+"Allegati salvati nella cartella"
 
 "Sorry, you have to wait "
 1
@@ -785,9 +733,9 @@
 1
 (iso->utf8 "' è fallita")
 
-"the settings file was saved as `"
+"the settings file was saved as"
 1
-(iso->utf8 "il file di configurazione è stato salvato come `")
+(iso->utf8 "il file di configurazione è stato salvato come")
 
 "creation of settings file failed"
 1
@@ -812,6 +760,10 @@
 "options"
 1
 "opzioni"
+
+"Ignored extra bytes ("
+1
+"Extra bytes ignorati ("
 
         )
 

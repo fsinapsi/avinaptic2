@@ -197,11 +197,15 @@
                 until (= pos endpos)
                 (if (= level 0)
                 then    ; questo hack serve per riconoscere mp4 a cui sono stati
-                        ; appesi in fondo degli zeri
-                        (fsetpos pos f)
-                        (for cnt in pos .. (- endpos 1) do
-                                (set c (freaduint-be f 8))
-                                until (<> c 0) )
+                        ; appesi in fondo alcuni bytes
+                        (if (< (- endpos pos) 8)
+                        then    (set c 0)
+                        else    (fsetpos pos f)
+                                (for cnt in pos .. (- endpos 1) do
+                                        (set c (freaduint-be f 8))
+                                        until (<> c 0) ))
+                        (if (= c 0)
+                        then    (set <fileinfo "extra-bytes"> (- endpos pos)) )
                 else    (set c 1) )
                 until (= c 0)
                 (fsetpos pos f) ))
@@ -756,7 +760,7 @@
                                         (vid-parse vid (vid-mp4-sample-size vid cnt))
                                         (inc cnt)
                                         (if (= (% cnt 300) 0)
-                                        then    (parse-progress info f "mp4" undef) )
+                                        then    (parse-progress f "mp4" undef) )
                                         (or complete (< cnt (parse-video-frame-min))) ))
                         (seq    (set aud (car vid))
                                 (audp aud)
@@ -775,7 +779,7 @@
                                         (aud-parse aud (vid-mp4-sample-size vid cnt))
                                         (inc cnt)
                                         (if (= (% cnt 300) 0)
-                                        then    (parse-progress info f "mp4" undef) )
+                                        then    (parse-progress f "mp4" undef) )
                                         (or complete (< cnt (parse-video-frame-min))) )
                                 (close vid) )
                         (success) )))

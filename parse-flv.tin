@@ -91,7 +91,7 @@
                 (fsetpos offs f)
                 (inc cnt)
                 (if (= (% cnt 300) 0)
-                then    (parse-progress info f "flv" undef) ))
+                then    (parse-progress f "flv" undef) ))
         (if (and (not vfr) (not (in "framerate" @fileinfo)))
         then    (set <@fileinfo "framerate"> (/ 1000 (/ prev-ts (- frame-cnt 1)))) )
         (set v <@fileinfo "totalduration">)

@@ -473,307 +473,31 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet gtk-message-info (parent msg)
+(defnet iup-message-info (parent msg)
         (if (cli)
         then    (print "INF: " msg nl)
-        else    (if (cmingw)
-                then    (gtk-message-info--old parent msg)
-                else    (gtk-message-basic parent msg
-                                (pix-load-static "icons/48x48/dialog-information-2.png") ))))
+        else    (sound-info)
+                (iup-info parent msg)
+                (sound-pop) ))
 
-(defnet gtk-message-warning (parent msg)
+(defnet iup-message-warning (parent msg)
         (if (cli)
         then    (print "WRN: " msg nl)
-        else    (if (cmingw)
-                then    (gtk-message-warning--old parent msg)
-                else    (gtk-message-basic parent msg
-                                (pix-load-static "icons/48x48/dialog-important-2.png") ))))
+        else    (sound-warning)
+                (iup-warning parent msg)
+                (sound-pop) ))
 
-(defnet gtk-message-error (parent msg)
+(defnet iup-message-error (parent msg)
         (if (cli)
         then    (print "ERR: " msg nl)
-        else    (if (cmingw)
-                then    (gtk-message-error--old parent msg)
-                else    (gtk-message-basic parent msg
-                                (pix-load-static "icons/48x48/dialog-error-4.png") ))))
+        else    (sound-error)
+                (iup-error parent msg)
+                (sound-pop) ))
 
-(defnet gtk-message-basic (parent msg icon)
-        (deflocal win vb hb)
-
-        (set win (gtk-window-new))
-        (if (<> parent undef)
-        then    (gtk-window-set-transient-for win parent)
-                (gtk-window-set-modal win true) )
-        (gtk-window-set-resizable win false)
-        (gtk-window-set-title win "")
-        (gtk-container-set-border-width win 8)
-        (gtk-signal-connect win "destroy" (netptr gtk-destroy))
-
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
-
-        (set hb (gtk-hbox-new false 12))
-        (gtk-box-pack-start vb hb false false 0)
-
-                (gtk-box-pack-start hb (gtk-image-new-from-pixbuf icon) false false 0)
-                (gtk-box-pack-start hb (gtk-label-new (str-split msg 60)) true true 0)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                $"Close"
-                (netptr gtk-close-win)
-                win ) false false 0 )
-
-        (gtk-widget-show-all win)
-    ;    (if (<> parent undef)
-    ;    then    (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER_ON_PARENT)) )
-        (gtk-main) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gtk-question (parent msg)
-        (if (cmingw)
-        then    (gtk-question--old parent msg)
-        else    (gtk-question--new parent msg) ))
-
-(defnet gtk-question--new (parent msg)
-        (deflocal win vb hb a)
-
-        (set a (array default true 1))
-
-        (set win (gtk-window-new))
-        (if (<> parent undef)
-        then    (gtk-window-set-transient-for win parent)
-                (gtk-window-set-modal win true) )
-        (gtk-window-set-resizable win false)
-        (gtk-window-set-title win "")
-        (gtk-container-set-border-width win 8)
-        (gtk-signal-connect win "destroy" (netptr gtk-destroy))
-
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
-
-        (set hb (gtk-hbox-new false 12))
-        (gtk-box-pack-start vb hb false false 0)
-
-                (gtk-box-pack-start hb (gtk-image-new-from-pixbuf (pix-load-static "icons/48x48/dialog-question-2.png")) false false 0)
-                (gtk-box-pack-start hb (gtk-label-new (str-split msg 60)) true true 0)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                $"Cancel"
-                (netptr gtk-close-win)
-                win ) false false 0 )
-
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-apply.png")
-                "Ok"
-                (netptr gtk-question-ok)
-                (cons win a) ) false false 0 )
-
-        (gtk-widget-show-all win)
-    ;    (if (<> parent undef)
-    ;    then    (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER_ON_PARENT)) )
-        (gtk-main)
-        (not <a 0>) )
-
-(defnet gtk-question-ok (a)
-        (close (car a))
-        (set a (cdr a))
-        (set <a 0> false) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gtk-read-single-line (parent max title msg @line)
-        (deflocal res win hb hb2 w e)
-
-        (set win (gtk-window-new))
-        (if (<> parent undef)
-        then    (gtk-window-set-transient-for win parent)
-                (gtk-window-set-modal win true) )
-        (gtk-window-set-title win (if (= title undef) $"Data input" title))
-        (gtk-container-set-border-width win 10)
-        (gtk-signal-connect win "destroy" (netptr gtk-read-single-line-cancel) undef)
-
-        (set hb (gtk-hbox-new false 5))
-        (gtk-container-add win hb)
-
-        (gtk-box-pack-start hb (gtk-label-new msg) false false 0)
-
-        (set res (array 1))
-        (set e (gtk-entry-new))
-        (gtk-box-pack-start hb e true true 0)
-        (if (stringp @line)
-        then    (gtk-entry-set-text e @line) )
-        (if (integerp max)
-        then    (gtk-entry-set-max-length e max) )
-        (gtk-signal-connect e "activate" (netptr gtk-read-single-line-ok) win e res)
-
-        (set w (gtk-button-new))
-        (gtk-box-pack-start hb w false false 0)
-        (set hb2 (gtk-hbox-new false 5))
-        (gtk-container-add w hb2)
-        (gtk-box-pack-start hb2 (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/dialog-apply.png")) false false 0)
-        (gtk-box-pack-start hb2 (gtk-label-new "Ok") false false 0)
-        (gtk-signal-connect w "clicked" (netptr gtk-read-single-line-ok) win e res)
-
-        (set w (gtk-button-new))
-        (gtk-box-pack-start hb w false false 0)
-        (set hb2 (gtk-hbox-new false 5))
-        (gtk-container-add w hb2)
-        (gtk-box-pack-start hb2 (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/dialog-cancel-3.png")) false false 0)
-        (gtk-box-pack-start hb2 (gtk-label-new $"Cancel") false false 0)
-        (gtk-signal-connect w "clicked" (netptr gtk-read-single-line-cancel) win)
-
-        (gtk-widget-grab-focus e)
-        (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER))
-        (gtk-widget-show-all win)
-        (gtk-main)
-        (set res <res 0>)
-        (<> res undef)
-        (set @line res) )
-
-(defnet gtk-read-single-line-cancel (win)
-        (if (<> win undef)
-        then    (close win)
-        else    (gtk-main-quit) ))
-
-(defnet gtk-read-single-line-ok (win e res)
-        (gtk-widget-grab-focus e)
-        (set e (rtrim (gtk-entry-get-text e)))
-        (<> e "")
-        (set <res 0> (ltrim e))
-        (close win) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gtk-read-single-number (parent min max act decimals title msg @val)
-        (deflocal res win hb hb2 w e)
-
-        (set win (gtk-window-new))
-        (if (<> parent undef)
-        then    (gtk-window-set-transient-for win parent)
-                (gtk-window-set-modal win true) )
-        (gtk-window-set-title win (if (= title undef) "Data input" title))
-        (gtk-container-set-border-width win 10)
-        (gtk-signal-connect win "destroy" (netptr gtk-read-single-line-cancel) undef)
-
-        (set hb (gtk-hbox-new false 5))
-        (gtk-container-add win hb)
-
-        (gtk-box-pack-start hb (gtk-label-new msg) false false 0)
-
-        (set res (array 1))
-        (set e (gtk-spin-button-new-with-range min max (pow 10 -decimals)))
-        (gtk-spin-button-set-value e act)
-        (gtk-spin-button-set-numeric e true)
-        (gtk-spin-button-set-wrap e false)
-        (gtk-box-pack-start hb e true true 0)
-   ;     (gtk-signal-connect e "activate" (netptr gtk-read-single-number-ok) win e res)
-
-        (set w (gtk-button-new))
-        (gtk-box-pack-start hb w false false 0)
-        (set hb2 (gtk-hbox-new false 5))
-        (gtk-container-add w hb2)
-        (gtk-box-pack-start hb2 (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/dialog-apply.png")) false false 0)
-        (gtk-box-pack-start hb2 (gtk-label-new "Ok") false false 0)
-        (gtk-signal-connect w "clicked" (netptr gtk-read-single-number-ok) win e res)
-
-        (set w (gtk-button-new))
-        (gtk-box-pack-start hb w false false 0)
-        (set hb2 (gtk-hbox-new false 5))
-        (gtk-container-add w hb2)
-        (gtk-box-pack-start hb2 (gtk-image-new-from-pixbuf (pix-load-static "icons/16x16/dialog-cancel-3.png")) false false 0)
-        (gtk-box-pack-start hb2 (gtk-label-new $"Cancel") false false 0)
-        (gtk-signal-connect w "clicked" (netptr gtk-read-single-line-cancel) win)
-
-        (gtk-widget-grab-focus e)
-        (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER))
-        (gtk-widget-show-all win)
-        (gtk-main)
-        (set res <res 0>)
-        (<> res undef)
-        (set @val res) )
-
-(defnet gtk-read-single-number-ok (win e res)
-        (set <res 0> (gtk-spin-button-get-value e))
-        (close win) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet apply-win-settings (win win-descr default-width default-height)
-        (deflocal w h pos)
-
-        (set w (cfg-get-num (+ win-descr "-width")))
-        (set h (cfg-get-num (+ win-descr "-height")))
-        (set pos (cfg-get (+ win-descr "-position")))
-        (gtk-window-set-default-size win
-                (if (= w undef) default-width w)
-                (if (= h undef) default-height h) )
-        (if (<> pos undef)
-        then    (gtk-window-move win (car pos) (cdr pos))
-        else    (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER)) ))
-
-(defnet save-win-settings (win win-descr)
-        (deflocal oldpos newpos)
-
-        (sqlite3-begin _db)
-        (alt    (seq    (cfg-set (+ win-descr "-width") (width win))
-                        (cfg-set (+ win-descr "-height") (height win))
-                        (set oldpos (cfg-get (+ win-descr "-position")))
-                        (set newpos (gtk-window-get-position win))
-                        (if (or (= oldpos undef)
-                                (> (abs (- (car newpos) (car oldpos))) 2)
-                                (> (abs (- (cdr newpos) (cdr oldpos))) 2) )
-                        then    (cfg-set (+ win-descr "-position") newpos) )
-                        (sqlite3-end _db) )
-                (sqlite3-rollback _db) ))
-
-(defnet win-delete (e win win-descr)
-        (save-win-settings win win-descr)
-        (fail) )
-
-(defnet win-close (win win-descr)
-        (save-win-settings win win-descr)
-        (close win) )
+(defnet iup-message-confirm (parent msg)
+        (if (not (cli))
+        then    (sound-question)
+                (iup-confirm parent msg) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -850,15 +574,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet avcp (info) (= (avcp info) true))
-(defun avcp (info) net avcp0)
-(defnet avcp0 (info @res)
+(defnet avcp () (truep (avcp)))
+(defun avcp () net avcp0)
+(defnet avcp0 (@res)
         (deflocal video vid fps i)
 
-        (alt    (seq    (set video <info "video">)
+        (alt    (seq    (set video <_kv "video">)
                         (integerp video)
                         (for i in 1 .. video do
-                                (opt    (info->vid-fps-basic info (for-pos) vid fps)
+                                (opt    (info->vid-fps-basic _kv (for-pos) vid fps)
                                         (set @res (= (vid-bitstream-type vid) 3)) )
                                 until @res ))
                 (set @res false) ))
@@ -873,13 +597,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun info->aud (info n) net info->aud)
-(defnet info->aud (info n @aud)
+(defun info->aud (n) net info->aud)
+(defnet info->aud (n @aud)
         (deflocal fileinfo i)
 
         (clr @aud)
-        (set fileinfo <info "fileinfo">)
-        (case <info "filetype"> of
+        (set fileinfo <_kv "fileinfo">)
+        (case <_kv "filetype"> of
                 "aud"   (seq    (= n 0)
                                 (set @aud fileinfo) )
                 "avi"   (seq    (for i in <(car fileinfo) "streams"> do
@@ -911,17 +635,37 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun info->aud-queue (info) net info->aud-queue)
-(defnet info->aud-queue (info @q)
+(defun info->aud-queue () net info->aud-queue)
+(defnet info->aud-queue (@q)
         (deflocal i aud codec)
 
         (set @q (queue))
-        (set i <info "audio">)
+        (set i <_kv "audio">)
         (for i in 1 .. (if (integerp i) i 0) do
-                (set aud (info->aud info (for-pos)))
+                (set aud (info->aud (for-pos)))
                 (set codec (aud-codec aud))
                 (if (<> codec undef)
                 then    (queue-put @q (list i aud codec)) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet da-chiudere (obj)
+        (queue-put <_kv "da-chiudere"> obj) )
+
+(defnet quit ()
+        (deflocal obj i)
+
+        (for obj in <_kv "da-chiudere"> do
+                (close obj) )
+        (sound-quit) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

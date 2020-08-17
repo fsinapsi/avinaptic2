@@ -358,7 +358,7 @@
                         (set cnt (+ cnt 1))
                         (set <stream 3> cnt)
                         (if (= (% cnt 300) 0)
-                        then    (parse-progress info f "avi" vid) )
+                        then    (parse-progress f "avi" vid) )
                         (or complete (< cnt (parse-video-frame-min))) )
                 (set @stop true) ))
 
@@ -380,7 +380,7 @@
                         (set d (+ 1 <stream 3>))
                         (set <stream 3> d)
                         (if (= (% d 1000) 0)
-                        then    (alt    (parse-progress info f "avi" undef)
+                        then    (alt    (parse-progress f "avi" undef)
                                         (set @stop true) )))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

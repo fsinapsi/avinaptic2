@@ -8,56 +8,55 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet dump (info)
-        (set <info "display"> "text")
-        (set <info "indent-pattern"> (cfg-get-or-default "indent-pattern" <info "default">))
-        (gtk-text-buffer-set-text <info "text"> "")
-        (opt (dump0 info))
-        (if (and <info "complete"> (cfg-get-or-default "enabled-sound-alert" <info "default">))
-        then    (send (raw-load-static "alert.wav") to <info "soundserver">) )
-        (assoc-clr info "display")
-        (assoc-clr info "indent-pattern") )
+(defnet dump ()
+        (dump-iup-begin)
+        (set <_kv "display"> "text")
+        (set <_kv "indent-pattern"> (cfg-get-or-default "indent-pattern" <_kv "default">))
+        (opt (dump0))
+        (dump-iup-end)
+        (assoc-clr _kv "display")
+        (assoc-clr _kv "indent-pattern") )
 
-(defnet dump-file (info path)
-        (dump-file0 info path "file") )
+(defnet dump-file (path)
+        (dump-file0 path "file") )
 
-(defnet dump-bbcode (info path)
+(defnet dump-bbcode (path)
         (deflocal default-info failure)
 
-        (set default-info <info "default">)
-        (set <info "bbcode-color-section"> (color2hex (cfg-get-or-default "bbcode-color-section" default-info)))
-        (set <info "bbcode-color-field"> (color2hex (cfg-get-or-default "bbcode-color-field" default-info)))
-        (set <info "bbcode-color-value"> (color2hex (cfg-get-or-default "bbcode-color-value" default-info)))
-        (set <info "bbcode-bold-section"> (cfg-get-or-default "bbcode-bold-section" default-info))
-        (set <info "bbcode-underline-section"> (cfg-get-or-default "bbcode-underline-section" default-info))
-        (set <info "bbcode-bold-field"> (cfg-get-or-default "bbcode-bold-field" default-info))
-        (set <info "bbcode-underline-field"> (cfg-get-or-default "bbcode-underline-field" default-info))
-        (set <info "bbcode-bold-value"> (cfg-get-or-default "bbcode-bold-value" default-info))
-        (set <info "bbcode-underline-value"> (cfg-get-or-default "bbcode-underline-value" default-info))
-        (alt    (seq    (dump-file0 info path "bbcode")
+        (set default-info <_kv "default">)
+        (set <_kv "bbcode-color-section"> (color2hex (cfg-get-or-default "bbcode-color-section" default-info)))
+        (set <_kv "bbcode-color-field"> (color2hex (cfg-get-or-default "bbcode-color-field" default-info)))
+        (set <_kv "bbcode-color-value"> (color2hex (cfg-get-or-default "bbcode-color-value" default-info)))
+        (set <_kv "bbcode-bold-section"> (cfg-get-or-default "bbcode-bold-section" default-info))
+        (set <_kv "bbcode-underline-section"> (cfg-get-or-default "bbcode-underline-section" default-info))
+        (set <_kv "bbcode-bold-field"> (cfg-get-or-default "bbcode-bold-field" default-info))
+        (set <_kv "bbcode-underline-field"> (cfg-get-or-default "bbcode-underline-field" default-info))
+        (set <_kv "bbcode-bold-value"> (cfg-get-or-default "bbcode-bold-value" default-info))
+        (set <_kv "bbcode-underline-value"> (cfg-get-or-default "bbcode-underline-value" default-info))
+        (alt    (seq    (dump-file0 path "bbcode")
                         (set failure false) )
                 (set failure true) )
-        (assoc-clr info "bbcode-color-section")
-        (assoc-clr info "bbcode-color-field")
-        (assoc-clr info "bbcode-color-value")
-        (assoc-clr info "bbcode-bold-section")
-        (assoc-clr info "bbcode-underline-section")
-        (assoc-clr info "bbcode-bold-field")
-        (assoc-clr info "bbcode-underline-field")
-        (assoc-clr info "bbcode-bold-value")
-        (assoc-clr info "bbcode-underline-value")
+        (assoc-clr _kv "bbcode-color-section")
+        (assoc-clr _kv "bbcode-color-field")
+        (assoc-clr _kv "bbcode-color-value")
+        (assoc-clr _kv "bbcode-bold-section")
+        (assoc-clr _kv "bbcode-underline-section")
+        (assoc-clr _kv "bbcode-bold-field")
+        (assoc-clr _kv "bbcode-underline-field")
+        (assoc-clr _kv "bbcode-bold-value")
+        (assoc-clr _kv "bbcode-underline-value")
         (not failure) )
 
-(defnet dump-html (info path)
-        (dump-file0 info path "html") )
+(defnet dump-html (path)
+        (dump-file0 path "html") )
 
-(defnet dump-file0 (info path display)
+(defnet dump-file0 (path display)
         (deflocal f s)
 
-        (dump-file1 info display s)
+        (dump-file1 display s)
         (alt    (seq    (= path undef)
-                        (opt (info-text info s)) )
-                (seq    (if (cfg-get-or-default "enabled-utf8bom" <info "default">)
+                        (opt (info-text s)) )
+                (seq    (if (cfg-get-or-default "enabled-utf8bom" <_kv "default">)
                         then    (if (<> (utf8-length s) (length s))
                                 then    (set s (+ (utf8-bom) s)) ))
                         (if (cms-windows)
@@ -68,20 +67,20 @@
                         (close f) )
                 (seq    (close f)
                         (opt (remove path))
-                        (gtk-message-error <info "win">
+                        (iup-message-error <_kv "win">
                                 (+ "fallita la generazione del file\n"
                                    path ))
                         (fail) )))
 
-(defnet dump-file1 (info display @s)
-        (set <info "display"> display)
-        (set <info "display-text"> "")
-        (set <info "indent-pattern"> (cfg-get-or-default "indent-pattern" <info "default">))
+(defnet dump-file1 (display @s)
+        (set <_kv "display"> display)
+        (set <_kv "display-text"> "")
+        (set <_kv "indent-pattern"> (cfg-get-or-default "indent-pattern" <_kv "default">))
         (if (= display "html")
-        then    (assoc-inc info "display-text" (+
+        then    (assoc-inc _kv "display-text" (+
                         "<html>" nl
                         "<head>" nl
-                        "<title>" <info "short-path"> "</title>" nl
+                        "<title>" <_kv "short-path"> "</title>" nl
                         "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\" />" nl
                         "<meta name=\"author\" content=\"AVInaptic\" />" nl
                         "<meta name=\"keywords\" content=\"AVInaptic\" />" nl
@@ -89,39 +88,39 @@
                         "</head>" nl
                         "<body bgcolor=\"#FFEBCD\" text=\"#000000\">" nl
                         "<pre>" nl )))
-        (alt    (dump0 info)
-                (seq    (assoc-clr info "display")
-                        (assoc-clr info "display-text")
-                        (assoc-clr info "indent-pattern")
+        (alt    (dump0)
+                (seq    (assoc-clr _kv "display")
+                        (assoc-clr _kv "display-text")
+                        (assoc-clr _kv "indent-pattern")
                         (fail) ))
         (if (= display "html")
-        then    (assoc-inc info "display-text" (+
+        then    (assoc-inc _kv "display-text" (+
                         "</pre>" nl
                         "</body>" nl
                         "</html>" nl )))
-        (set @s <info "display-text">)
-        (assoc-clr info "display")
-        (assoc-clr info "display-text")
-        (assoc-clr info "indent-pattern") )
+        (set @s <_kv "display-text">)
+        (assoc-clr _kv "display")
+        (assoc-clr _kv "display-text")
+        (assoc-clr _kv "indent-pattern") )
 
-(defnet dump0 (info)
-        (<> <info "path"> undef)
-        (set <info "decimals"> (cfg-get-or-default-num "decimals" <info "default">))
-        (dump-generic-file info)
-        (dump-magic info)
-        (dump-id3tag info)
-        (dump-exif info)
-        (dump-generic info)
-        (dump-relevant info)
-        (dump-log-x264 info)
-        (dump-video info)
-        (dump-audio info)
-        (dump-bitstream-vid info)
-        (dump-profile-compliancy info)
-        (dump-mkv-attachments info)
-        (dump-mkv-chapters info)
-        (dump-sign info)
-        (assoc-clr info "decimals") )
+(defnet dump0 ()
+        (<> <_kv "path"> undef)
+        (set <_kv "decimals"> (cfg-get-or-default-num "decimals" <_kv "default">))
+        (dump-generic-file)
+        (dump-magic _kv)
+        (dump-id3tag _kv)
+        (dump-exif _kv)
+        (dump-generic _kv)
+        (dump-relevant _kv)
+        (dump-log-x264 _kv)
+        (dump-video _kv)
+        (dump-audio _kv)
+        (dump-bitstream-vid _kv)
+        (dump-profile-compliancy _kv)
+        (dump-mkv-attachments _kv)
+        (dump-mkv-chapters _kv)
+        (dump-sign _kv)
+        (assoc-clr _kv "decimals") )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -133,9 +132,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun indent (info) (indentn info 1))
-(defun indentn (info n) (indentn0 info n <info "indent-pattern">))
-(defun indentn0 (info n indent-pattern)
+(defun indent () (indentn 1))
+(defun indentn (n) (indentn0 n <_kv "indent-pattern">))
+(defun indentn0 (n indent-pattern)
         (tile (* (length indent-pattern) n) indent-pattern) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -156,8 +155,7 @@
                 "html"  (dump-section-html info title) ))
 
 (defnet dump-section-text (info title)
-        (gtk-text-buffer-append-color <info "text">
-                <info "color-section"> nl title nl nl ))
+        (dump-iup-append "color-section" (sprint nl title nl nl)) )
 
 (defnet dump-section-file (info title)
         (assoc-inc info "display-text" (+ ""
@@ -205,13 +203,12 @@
                 (set field "") ))
 
 (defnet dump-field-text (info field value)
-        (deflocal text field-len divider-len value-len value-color v i)
+        (deflocal text field-len divider-len value-len v i)
 
         (set text <info "text">)
         (set field-len <info "length-field">)
         (set divider-len <info "length-divider">)
         (set value-len <info "length-value">)
-        (set value-color <info "color-value">)
         (if (= (utf8-length field) undef)
         then    (set field $"invalid utf8 string") )
         (set i <info "tile-pattern">)
@@ -221,12 +218,11 @@
         (set field (if <info "tile-left">
                 (+ (utf8-tile (- field-len (utf8-length field)) i) field)
                 (+ field (utf8-tile (- field-len (utf8-length field)) i)) ))
-        (gtk-text-buffer-append-color text <info "color-field">
-                field (tile divider-len) )
+        (dump-iup-append "color-field" (sprint field (tile divider-len)))
         (if (= (utf8-length value) undef)
         then    (set value $"invalid utf8 string") )
         (repeat (if (<= (utf8-length value) value-len)
-                then    (gtk-text-buffer-append-color text value-color value nl)
+                then    (dump-iup-append "color-value" (sprint value nl))
                         (set value "")
                 else    (set i value-len)
                         (repeat (set v (sub 0 i value))
@@ -241,9 +237,9 @@
                                         (not (search "." v)) )
                                 (search "." v i (maxint))
                                 (set i (- i 1)) )
-                        (gtk-text-buffer-append-color text value-color
-                                (rtrim (sub 0 (+ i 1) value)) nl
-                                (tile (+ field-len divider-len)) )
+                        (dump-iup-append "color-value"
+                                (sprint (rtrim (sub 0 (+ i 1) value)) nl
+                                        (tile (+ field-len divider-len)) ))
                         (set value (ltrim (sub (+ i 1) (maxint) value))) )
                 until (= value "") ))
 
@@ -293,15 +289,9 @@
                 "html"  (dump-sign-html info) ))
 
 (defnet dump-sign-text (info)
-        (deflocal c)
-
-        (set c (cfg-get-or-default "color-background" <info "default">))
-        (set c (pix-color (- 0xff (pix-color-red c))
-                          (- 0xff (pix-color-green c))
-                          (- 0xff (pix-color-blue c)) ))
-        (gtk-text-buffer-append-color <info "text"> c
-                nl $"This report was created by" " AVInaptic (" (version)
-                   $") on " (format-date <info "time">) ))
+        (dump-iup-append "inverse-background"
+                (sprint nl $"This report was created by" " AVInaptic (" (version)
+                        $") on " (format-date <info "time">) )))
 
 (defnet dump-sign-file (info)
         (assoc-inc info "display-text" (+ ""
@@ -599,16 +589,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet dump-generic-file (info)
-        (dump-section info $"About file")
-        (dump-field info $"Name" <info "short-path">)
-        (dump-date info $"Date" <info "filetime">)
-        (dump-bytes info $"Size" <info "filesize">)
-        (if (and (not <info "complete">)
-                 (in <info "filetype"> [ "avi" "mkv" "mp4" "flv" ]) )
-        then    (dump-field info $"Note" $"Analysis not complete") )
-        (if <info "aborted">
-        then    (dump-field info $"Note" $"Analysis aborted") ))
+(defnet dump-generic-file ()
+        (dump-section _kv $"About file")
+        (dump-field _kv $"Name" <_kv "short-path">)
+        (dump-date _kv $"Date" <_kv "filetime">)
+        (dump-bytes _kv $"Size" <_kv "filesize">)
+        (if (and (not <_kv "complete">)
+                 (in <_kv "filetype"> [ "avi" "mkv" "mp4" "flv" ]) )
+        then    (dump-field _kv $"Note" $"Analysis not complete") )
+        (if <_kv "aborted">
+        then    (dump-field _kv $"Note" $"Analysis aborted") )
+        (if (integerp <_kv "fileinfo" "extra-bytes">)
+        then    (dump-field _kv $"Note" (+ $"Ignored extra bytes (" <_kv "fileinfo" "extra-bytes"> ")")) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1454,46 +1446,52 @@
         then    (dump-drf info vid fps tosub-a tosub-b) ))
 
 (defnet dump-bitstream-vid-user-data (info vid)
-        (deflocal grouped max acc i j)
+        (deflocal grouped max nodup acc i j)
 
         (set grouped (cfg-get-or-default "user-data-grouped"
                                 <info "default"> ))
         (set max <info "length-value">)
+        (set nodup (assoc))
         (for i in (vid-userdata vid) do
                 (set i (utf8-validate (rtrim i '' ' ' '\t' '\r' '\n')))
                 (alt    (= i "")
                         (seq    (lmatch i "x264")
                                 (set acc "")
                                 (opt*   (search " - " i j)
-                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i))
+                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i) nodup)
                                         (set i (sub (+ j 3) (maxint) i)) )
                                 (opt    (lmatch remove i "options: "))
                                 (opt*   (search " " i j)
-                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i))
+                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i) nodup)
                                         (set i (sub (+ j 1) (maxint) i)) )
                                 (opt    (<> i "")
-                                        (dump-bitstream-vid-user-data-put info grouped max acc i) )
+                                        (dump-bitstream-vid-user-data-put info grouped max acc i nodup) )
                                 (if (<> acc "")
-                                then    (dump-field info "User data" acc) ))
+                                then    (dump-bitstream-vid-user-data-dump info acc nodup) ))
                         (seq    (search " - " i)
                                 (set acc "")
                                 (opt*   (search " - " i j)
-                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i))
+                                        (dump-bitstream-vid-user-data-put info grouped max acc (sub 0 j i) nodup)
                                         (set i (sub (+ j 3) (maxint) i)) )
                                 (opt    (<> i "")
-                                        (dump-bitstream-vid-user-data-put info grouped max acc i) )
+                                        (dump-bitstream-vid-user-data-put info grouped max acc i nodup) )
                                 (if (<> acc "")
-                                then    (dump-field info "User data" acc) ))
-                        (dump-field info "User data" i) )))
+                                then    (dump-bitstream-vid-user-data-dump info acc nodup) ))
+                        (dump-bitstream-vid-user-data-dump info i nodup) )))
 
-(defnet dump-bitstream-vid-user-data-put (info grouped max @acc l)
+(defnet dump-bitstream-vid-user-data-put (info grouped max @acc l nodup)
         (if grouped
         then    (if (<= (+ (length @acc) 3 (length l)) max)
                 then    (inc @acc (if (= @acc "") "" " | ") l)
                 else    (if (<> @acc "")
-                        then    (dump-field info "User data" @acc) )
+                        then    (dump-bitstream-vid-user-data-dump info @acc nodup) )
                         (set @acc l) )
-        else    (dump-field info "User data" l) ))
+        else    (dump-bitstream-vid-user-data-dump info l nodup) ))
+
+(defnet dump-bitstream-vid-user-data-dump (info value nodup)
+        (if (= <nodup value> undef)
+        then    (set <nodup value> true)
+                (dump-field info "User data" value) ))
 
 (defnet dump-bitstream-vid-mpeg4-asp (info vid)
         (deflocal i j k)
@@ -1542,24 +1540,24 @@
 
         (for i in 1 .. (vid-sps-cnt vid) do
                 (dump-field info "SPS id" (vid-sps-id vid (for-pos)))
-                (dump-field info (+ (indent info) "Profile")
+                (dump-field info (+ (indent) "Profile")
                         (sprint (avc-profile (vid-profile-idc vid (for-pos))) "@L"
                                 (/ (vid-level-idc vid (for-pos)) 10) ))
-                (dump-field info (+ (indent info) "Num ref frames") (vid-num-ref-frames vid (for-pos)))
+                (dump-field info (+ (indent) "Num ref frames") (vid-num-ref-frames vid (for-pos)))
                 (set j (vid-par vid (for-pos)))
                 (if (and (<> j undef) (> j 0))
                 then    (if (= j 255)
                         then    (set k (vid-par-w vid (for-pos)))
                                 (set l (vid-par-h vid (for-pos)))
-                                (dump-field info (+ (indent info) "Aspect ratio") (+ "Custom pixel shape" " (" k ":" l " = " (approx (/ k l) <info "decimals">) ")"))
-                        else    (dump-field info (+ (indent info) "Aspect ratio") (ar-desc-mpeg4-avc j)) ))
+                                (dump-field info (+ (indent) "Aspect ratio") (+ "Custom pixel shape" " (" k ":" l " = " (approx (/ k l) <info "decimals">) ")"))
+                        else    (dump-field info (+ (indent) "Aspect ratio") (ar-desc-mpeg4-avc j)) ))
                 (set j (vid-chroma-format-idc vid (for-pos)))
                 (if (in j 0 .. 3)
-                then    (dump-field info (+ (indent info) "Chroma format") <[ "monochrome" "YUV 4:2:0" "YUV 4:2:2" "YUV 4:4:4" ] j>) )
+                then    (dump-field info (+ (indent) "Chroma format") <[ "monochrome" "YUV 4:2:0" "YUV 4:2:2" "YUV 4:4:4" ] j>) )
                 (for j in 0 .. 7 do
                         (if (<> (vid-quant-matrix vid j 0 (for-pos)) undef)
                         then    (dump-field info
-                                        (+ (+ (indent info) "Custom ")
+                                        (+ (+ (indent) "Custom ")
                                            <[ "intra4X4 luma" "intra4X4 chromau" "intra4x4 chromav"
                                                     "inter4X4 luma" "inter4X4 chromau" "inter4x4 chromav"
                                                     "intra8X8 luma" "inter8X8 luma" ]  j>)
@@ -1569,24 +1567,24 @@
         (for i in 1 .. (vid-pps-cnt vid) do
                 (dump-field info "PPS id" (sprint (vid-pps-id vid (for-pos))
                                         " (SPS: " (vid-pps-sps-id vid (for-pos)) ")" ))
-                (dump-field info (+ (indent info) $"Entropy coding type")
+                (dump-field info (+ (indent) $"Entropy coding type")
                         (if (vid-entropy-coding-mode vid (for-pos))
                                 "CABAC"
                                 "CAVLC" ))
-                (dump-field info (+ (indent info) "Weighted prediction")
+                (dump-field info (+ (indent) "Weighted prediction")
                         (if (vid-weighted-pred vid (for-pos))
                                 "P slices - explicit weighted prediction"
                                 "No" ))
                 (set j (vid-weighted-bipred-idc vid (for-pos)))
-                (dump-field info (+ (indent info) "Weighted bipred idc") <[
+                (dump-field info (+ (indent) "Weighted bipred idc") <[
                         "No"
                         "B slices - explicit weighted prediction"
                         "B slices - implicit weighted prediction" ]  j>)
-                (dump-boolean info (+ (indent info) "8x8dct") (vid-transform_8x8_mode_flag vid (for-pos)))
+                (dump-boolean info (+ (indent) "8x8dct") (vid-transform_8x8_mode_flag vid (for-pos)))
                 (for j in 12 .. 19 do
                         (if (<> (vid-quant-matrix vid j 0 (for-pos)) undef)
                         then    (dump-field info
-                                        (+ (+ (indent info) "Custom ")
+                                        (+ (+ (indent) "Custom ")
                                            <[ "intra4X4 luma" "intra4X4 chromau" "intra4x4 chromav"
                                                            "inter4X4 luma" "inter4X4 chromau" "inter4x4 chromav"
                                                            "intra8X8 luma" "inter8X8 luma" ]  (- j 12)>)
@@ -1635,7 +1633,7 @@
                         (set j (vid-cnt-bframes vid i))
                         (if (> j 0)
                         then    (dump-percent-line info j tot max j)
-                                (dump-field info (+ (indentn info 2) i " consec") j) ))))
+                                (dump-field info (+ (indentn 2) i " consec") j) ))))
 
 (defnet dump-warp-points (info vid)
         (deflocal max tot i j)
@@ -1822,7 +1820,7 @@
                         (dump-field info (+ "Content encoding"
                                             (if (= (length a) 1) ""
                                                 (+ " nr. " (+ (for-pos) 1)) )) "" )
-                        (dump-field info (+ (indent info) "order") (car i))
+                        (dump-field info (+ (indent) "order") (car i))
                         (set j <asc "ContentEncodingScope">)
                         (set k (queue))
                         (if (= (flags-field j 0 1) 1)
@@ -1831,17 +1829,16 @@
                         then    (queue-put k "codec private") )
                         (if (= (flags-field j 2 1) 1)
                         then    (queue-put k "next content encoding") )
-                        (dump-field info (+ (indent info) "scope") (sprintl k " + "))
+                        (dump-field info (+ (indent) "scope") (sprintl k " + "))
                         (set j <asc "ContentEncodingType">)
-                        (dump-field info (+ (indent info) "type") <[ "compression" "encryption" ] j>)
+                        (dump-field info (+ (indent) "type") <[ "compression" "encryption" ] j>)
                         (if (= j 0)
                         then    (set j <asc "ContentCompAlgo">)
-                                (dump-field info (+ (indent info) "compression algorithm") <[ "zlib" "bzlib" "lzo1x" "header stripping" ] j
->)
+                                (dump-field info (+ (indent) "compression algorithm") <[ "zlib" "bzlib" "lzo1x" "header stripping" ] j>)
                                 (if (= j 3)
                                 then    (set j <asc "ContentCompSettings">)
                                         (if (rawp j)
-                                        then    (dump-bytes info (+ (indent info) "stripped header") (length j)) ))))))
+                                        then    (dump-bytes info (+ (indent) "stripped header") (length j)) ))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1915,9 +1912,9 @@
                 (set displays <(cdr i) "displays">)
                 (if (= (length displays) 0)
                 then    (dump-field info
-                                (+ (indentn info level) (s->hhmmss (car i)) "-"
+                                (+ (indentn level) (s->hhmmss (car i)) "-"
                                    (s->hhmmss <(cdr i) "ChapterTimeEnd">) )
-                                (+ (indentn info level) $"Chapter nr. " (+ (for-pos) 1)) )
+                                (+ (indentn level) $"Chapter nr. " (+ (for-pos) 1)) )
                 else    (for j in displays do
                                 (set s <j "ChapString">)
                                 (set c <j "ChapCountry">)
@@ -1925,13 +1922,66 @@
                                 then    (set s (+ $"Chapter nr. " (+ (for-pos) 1))) )
                                 (dump-field info
                                         (if (and chap-disp-grouped (> (for-pos) 0)) ""
-                                                (+ (indentn info level) (s->hhmmss (car i)) "-"
+                                                (+ (indentn level) (s->hhmmss (car i)) "-"
                                                    (s->hhmmss <(cdr i) "ChapterTimeEnd">) ))
-                                        (+ (indentn info level) s " {" <j "ChapLanguage"> "}"
+                                        (+ (indentn level) s " {" <j "ChapLanguage"> "}"
                                            (if (= c undef) "" (+ " [" c "]")) ))))
                 (set j <(cdr i) "ChapterAtom">)
                 (if (<> j undef)
                 then    (dump-mkv-chapters-rec info j chap-disp-grouped (+ level 1)) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defnet dump-iup-begin ()
+        (deflocal a)
+
+        (set a (array 2))
+        (set <a 0> "")
+        (set <a 1> (queue))
+        (set <_kv "dump-iup"> a) )
+
+(defnet dump-iup-end ()
+        (deflocal text a q c i p)
+
+        (set text <_kv "text">)
+        (set a <_kv "dump-iup">)
+        (set q <a 1>)
+        (iup-set-str-attribute text "VALUE" <a 0>)
+        (set p 0)
+        (while (> (length q) 0) do
+                (set a (queue-get q))
+                (set c (cdr a))
+                (set a (+ p (car a)))
+                (if (= c "inverse-background")
+                then    (set c (cfg-get-or-default "color-background" <_kv "default">))
+                        (set c (pix-color (- 0xff (pix-color-red c))
+                                          (- 0xff (pix-color-green c))
+                                          (- 0xff (pix-color-blue c)) ))
+                else    (set c <_kv c>) )
+                (set i (iup-user))
+                (iup-set-str-attribute i "SELECTIONPOS" p ":" a)
+                (iup-set-str-attribute i "FGCOLOR" (sprint (pix-color-red c) " " (pix-color-green c) " " (pix-color-blue c)))
+                (iup-set-attribute text "ADDFORMATTAG_HANDLE" i)
+                (set p a) )
+        (iup-set-int text "CARETPOS" 0)
+        (iup-refresh text)
+        (assoc-clr _kv "dump-iup") )
+
+(defnet dump-iup-append (color msg)
+        (deflocal a)
+
+        (set msg (utf8-validate0 msg))
+        (set a <_kv "dump-iup">)
+        (inc <a 0> msg)
+        (queue-put <a 1> (cons (utf8-length msg) color)) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

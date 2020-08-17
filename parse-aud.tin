@@ -49,7 +49,7 @@
                 (set <info "audio-aud"> @aud) )
         (opt*   (aud-parse @aud 131072)
                 (if (<> (aud-codec @aud) undef)
-                then    (parse-progress info f "aud" undef) ))
+                then    (parse-progress f "aud" undef) ))
         (if (or <info "aborted">
                 (= (aud-codec @aud) undef)
                 (>= (* 5 (+ (aud-initial-skip @aud)

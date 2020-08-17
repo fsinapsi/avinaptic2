@@ -56,19 +56,20 @@
         (exit -1) )
 
 (defnet avinaptic2-cli ()
-        (deflocal info out f s)
+        (deflocal out f s)
 
-        (init info)
-        (if (= <info "path"> undef)
-        then    (usage) )
-        (opt    (parse0 info <info "cli-drf">)
-                (dump-file1 info <info "cli-type"> s)
-                (if (cfg-get-or-default "enabled-utf8bom" <info "default">)
+        (init)
+        (if (= <_kv "path"> undef)
+        then    (quit)
+                (usage) )
+        (opt    (parse0 <_kv "cli-drf">)
+                (dump-file1 <_kv "cli-type"> s)
+                (if (cfg-get-or-default "enabled-utf8bom" <_kv "default">)
                 then    (if (<> (utf8-length s) (length s))
                         then    (set s (+ (utf8-bom) s)) ))
                 (if (cms-windows)
                 then    (set s (find-and-replace s "\n" "\r\n")) )
-                (set out <info "cli-out-path">)
+                (set out <_kv "cli-out-path">)
                 (if (= out undef)
                 then    (print s)
                 else    (set f (fcreate out))
@@ -77,7 +78,7 @@
                                 (fail) )
                         (fprint f s)
                         (close f) ))
-        (close _db) )
+        (quit) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -8,55 +8,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet info (info)
-        (deflocal win vb hb w)
-
-        (set win (gtk-window-new))
-        (gtk-window-set-transient-for win <info "win">)
-        (gtk-window-set-modal win true)
-        (gtk-window-set-resizable win false)
-        (gtk-window-set-title win $"About AVInaptic")
-        (gtk-container-set-border-width win 10)
-        (gtk-signal-connect win "destroy" (netptr gui-update) info)
-
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
-
-        (set hb (gtk-hbox-new false 20))
-        (gtk-box-pack-start vb hb true false 0)
-
-                (gtk-box-pack-start hb (gtk-image-new-from-pixbuf (pix-load-static "icons/128x128/avnfilm.png")) false false 0)
-
-                (gc)
-                (set w (gtk-label-new (+
-                        "AVInaptic (" (version) ") " $"was coded in TreeP by" " Frank Sinapsi" nl
-                        $"Latest version: " (url-home-page) nl
-                        $"Selected language: " <(languages) (lang)> nl
-                        "GC version: " (gc-version) nl
-                        "GMP version: " (gmp-version) nl
-                        "GTK+ version (" $"compile time" "): " (cmacro GTK_MAJOR_VERSION) "."
-                                                        (cmacro GTK_MINOR_VERSION) "."
-                                                        (cmacro GTK_MICRO_VERSION) nl
-                        "GTK+ version (" $"running time" "): " (gtk-major-version) "."
-                                                        (gtk-minor-version) "."
-                                                        (gtk-micro-version) nl
-                        (curl-version) nl
-                        "Free bytes/heap size: " (free-bytes) '/' (heap-size) )))
-                (gtk-box-pack-start hb w true false 0)
-                (gtk-label-set-justify w (cmacro GTK_JUSTIFY_CENTER))
-                ;(gtk-label-set-selectable w true)
-
-        (set hb (gtk-hbox-new false 6))
-        (gtk-box-pack-start vb hb false false 0)
-
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                $"Close"
-                (netptr gtk-close-win)
-                win ) false false 0 )
-
-        (gtk-window-set-position win (cmacro GTK_WIN_POS_CENTER))
-        (gtk-widget-show-all win) )
+(defnet info-cb (self)
+        (sound-info)
+        (iup-info-low self $"About AVInaptic" (pix-load-static "128x128/avnfilm.png") (+
+                "AVInaptic (" (version) ") " $"was coded in TreeP by"
+                " Frank Sinapsi" nl
+                $"Latest version: " (url-home-page) nl
+                nl
+                $"Selected language: " <(languages) (lang)> nl
+                (csysbits) "-bit version" nl
+                "GC version: " (gc-version) nl
+                "GMP version: " (gmp-version) nl
+                "IUP version: " (iup-version) nl
+                "IUP system: " (iup-get-global "SYSTEM") nl
+                (if (clinux) (+ "GTK version: " (iup-get-global "GTKVERSION") nl) "")
+                "Free bytes/heap size: " (free-bytes) '/' (heap-size) ))
+        (sound-pop) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -68,48 +35,53 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet info-text (info s)
-        (deflocal win vb hb w text)
+(defnet info-text (s)
+        (deflocal q text butbox vbox dlg)
 
-        (set win (gtk-window-new))
+        (set text (iup-text))
+        (iup-set-str-attribute text "MULTILINE" "YES")
+        (iup-set-bool text "READONLY" (not (cfg-get-or-default "text-info-editable" <_kv "default">)))
+        (iup-set-str-attribute text "EXPAND" "YES")
+        (iup-set-str-attribute text "WORDWRAP" "NO")
+        (iup-set-str-attribute text "PADDING" "2x0")
+        (iup-set-str-attribute text "VALUE" s)
+        (iup-set-int text "VISIBLELINES" 1)
+        (iup-set-int text "VISIBLECOLUMNS" 1)
 
-        (gtk-window-set-title win $"Copy-and-paste")
-        (gtk-container-set-border-width win 10)
-        (gtk-signal-connect win "delete-event" (netptr win-delete) win "win-info-text")
+        (set q (queue))
+        (set butbox (iup-box-ok (netptr info-text-close-cb) q))
 
-        (set vb (gtk-vbox-new false 10))
-        (gtk-container-add win vb)
+        (set vbox (iup-vbox
+                        text
+                        butbox ))
 
-        (set w (gtk-scrolled-window-new undef undef))
-        (gtk-scrolled-window-set-policy w
-                (cmacro GTK_POLICY_AUTOMATIC)
-                (cmacro GTK_POLICY_AUTOMATIC) )
-        (gtk-box-pack-start vb w true true 0)
+        ; FIXME salvare posizione e dimensioni finestra
 
-        (set text (gtk-text-view-new))
-        (gtk-container-add w text)
-        (set w (cfg-get-or-default "text-info-editable" <info "default">))
-        (gtk-text-view-set-editable text w)
-        (gtk-text-view-set-cursor-visible text w)
-        (gtk-text-view-set-wrap-mode text (cmacro GTK_WRAP_NONE))
-        (gtk-text-buffer-set-text text s)
-        (if (not w)
-        then    (gtk-text-buffer-select-all text) )
+        (set dlg (iup-dialog vbox))
+        (iup-set-str-attribute dlg "TITLE" $"Copy-and-paste")
+        (iup-set-str-attribute dlg "RASTERSIZE" "500x400")
+        (iup-set-callback dlg "CLOSE_CB" (netptr info-text-close-cb))
+        (iup-set-attribute-handle dlg "DEFAULTESC" (iup-box-ok-btn butbox))
+        (assoc-inc _kv "info-text-windows")
+        (iup-set-int dlg "TRPIMG" <_kv "info-text-windows">)
+        (set <_kv (+ "info-text-windows-" <_kv "info-text-windows">)> (queue-get q))
 
-        (set hb (gtk-hbox-new false 0))
-        (gtk-box-pack-start vb hb false false 0)
+        (iup-show-xy dlg (cmacro IUP_CENTER) (cmacro IUP_CENTER))
 
-        (gtk-box-pack-end hb (gtk-iconed-button
-                (pix-load-static "icons/16x16/dialog-cancel-3.png")
-                $"Close"
-                (netptr info-text-ok)
-                win ) false false 0 )
+        (iup-set-int text "CARETPOS" 0)
+        (iup-set-str-attribute text "SELECTION" "ALL")
+        (iup-set-str-attribute text "CLIPBOARD" "COPY")
+        (iup-flush) )
 
-        (apply-win-settings win "win-info-text" 500 400)
-        (gtk-widget-show-all win) )
+(defnet info-text-close-cb (self)
+        (deflocal key)
 
-(defnet info-text-ok (win)
-        (win-close win "win-info-text") )
+        (sound-pop)
+        (set self (iup-get-dialog self))
+        (set key (+ "info-text-windows-" (iup-get-int self "TRPIMG")))
+        (close self)
+        (close <_kv key>)
+        (assoc-clr _kv key) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
