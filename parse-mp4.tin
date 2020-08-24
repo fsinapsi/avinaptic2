@@ -8,23 +8,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-mp4 (info f)
+(defnet parse-mp4 (f)
         (deflocal fileinfo a i)
 
-        (not <info "aborted">)
+        (not <_kv "aborted">)
         (parse-mp4-check f i)
         (fsetpos 0 f)
         (set fileinfo (assoc-default (parse-mp4-default)))
         (set <fileinfo "isomedia"> i)
         (set <fileinfo "tracks"> (queue))
         (set <fileinfo "unknown-ids"> (queue))
-        (parse-mp4-rec fileinfo f <info "filesize"> undef -1 a)
-        (parse-mp4-bitstreams info fileinfo f)
-        (set <info "filetype"> "mp4")
-        (set <info "fileinfo"> fileinfo)
-        (set <info "video"> <fileinfo "video">)
-        (set <info "audio"> <fileinfo "audio">)
-        (set <info "cleaner"> (netptr parse-mp4-clean)) )
+        (parse-mp4-rec fileinfo f <_kv "filesize"> undef -1 a)
+        (parse-mp4-bitstreams fileinfo f)
+        (set <_kv "filetype"> "mp4")
+        (set <_kv "fileinfo"> fileinfo)
+        (set <_kv "video"> <fileinfo "video">)
+        (set <_kv "audio"> <fileinfo "audio">)
+        (set <_kv "cleaner"> (netptr parse-mp4-clean)) )
 
 (defnet parse-mp4-clean (fileinfo)
         (deflocal i j)
@@ -738,12 +738,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-mp4-bitstreams (info fileinfo f)
+(defnet parse-mp4-bitstreams (fileinfo f)
         (deflocal complete a-cnt a-demux vid aud cnt off i)
 
-        (set complete <info "complete">)
+        (set complete <_kv "complete">)
         (set a-cnt 0)
-        (set a-demux <info "audio-demux">)
+        (set a-demux <_kv "audio-demux">)
         (for i in <fileinfo "tracks"> do
                 (if (= <i "type"> "soun")
                 then    (inc a-cnt) )
@@ -767,10 +767,9 @@
                                 (set vid (cdr vid))
                                 (set <i "low"> aud)
                                 (if (= a-cnt a-demux)
-                                then    (aud-fpout-begin aud <info "audio-fpout">
-                                                (cfg-get-or-default "audio-saving-skip-garbage"
-                                                        <info "default"> ))
-                                        (set <info "audio-aud"> aud)
+                                then    (aud-fpout-begin aud <_kv "audio-fpout">
+                                                (cfg-get-or-df "audio-saving-skip-garbage") )
+                                        (set <_kv "audio-aud"> aud)
                                 else    (= a-demux undef) )
                                 (set cnt 0)
                                 (opt*   (set off (vid-mp4-sample-offset vid cnt))

@@ -38,8 +38,14 @@
         (if (= @val undef)
         then    (set @val <default-info key>) ))
 
+(defun cfg-get-or-df (key)
+        (cfg-get-or-default key <_kv "default">) )
+
 (defun cfg-get-num (key)
         (cfg-validate-num (cfg-get key)) )
+
+(defun cfg-get-or-df-num (key)
+        (cfg-validate-num (cfg-get-or-df key) ))
 
 (defun cfg-get-or-default-num (key default-info)
         (cfg-validate-num (cfg-get-or-default key default-info)) )

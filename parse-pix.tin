@@ -8,14 +8,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-pix (info f)
+(defnet parse-pix (f)
         (deflocal pix)
 
-        (not <info "aborted">)
-        (set pix (pix-load <info "path">))
+        (not <_kv "aborted">)
+        (set pix (pix-load <_kv "path">))
         (<> pix undef)
-        (set <info "filetype"> "pix")
-        (set <info "fileinfo">
+        (set <_kv "filetype"> "pix")
+        (set <_kv "fileinfo">
                 (list (pix-image-format pix)
                       (width pix) (height pix)
                       (pix-get-luminance pix)

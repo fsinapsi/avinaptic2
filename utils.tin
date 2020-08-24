@@ -102,19 +102,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun linear (x a b c d)
-        (+ c (/ (* (- x a) (- d c)) (- b a))) )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defun log10 (n)
         (if (< n 10) 0 (+ 1 (log10 (div (floor n) 10)))) )
 
@@ -509,25 +496,25 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun info->vid (info n) net info->vid)
-(defnet info->vid (info n @vid)
+(defun info->vid (n) net info->vid)
+(defnet info->vid (n @vid)
         (deflocal fps)
-        (info->vid-fps info n @vid fps) )
+        (info->vid-fps n @vid fps) )
 
-(defnet info->vid-fps (info n @vid @fps)
-        (= <info "complete"> true)
-        (info->vid-fps-basic info n @vid @fps) )
+(defnet info->vid-fps (n @vid @fps)
+        (= <_kv "complete"> true)
+        (info->vid-fps-low n @vid @fps) )
 
-(defnet info->vid-fps-basic (info n @vid @fps)
+(defnet info->vid-fps-low (n @vid @fps)
         (deflocal w h)
-        (info->vid-fps-res-basic info n @vid @fps w h) )
+        (info->vid-fps-res-low n @vid @fps w h) )
 
-(defnet info->vid-fps-res-basic (info n @vid @fps @w @h)
+(defnet info->vid-fps-res-low (n @vid @fps @w @h)
         (deflocal fileinfo i)
 
         (clr @vid @fps)
-        (set fileinfo <info "fileinfo">)
-        (case <info "filetype"> of
+        (set fileinfo <_kv "fileinfo">)
+        (case <_kv "filetype"> of
                 "avi"   (seq    (for i in <(car fileinfo) "streams"> do
                                         (if (= <i 0> "vids")
                                         then    (dec n) )
@@ -582,7 +569,7 @@
         (alt    (seq    (set video <_kv "video">)
                         (integerp video)
                         (for i in 1 .. video do
-                                (opt    (info->vid-fps-basic _kv (for-pos) vid fps)
+                                (opt    (info->vid-fps-low (for-pos) vid fps)
                                         (set @res (= (vid-bitstream-type vid) 3)) )
                                 until @res ))
                 (set @res false) ))

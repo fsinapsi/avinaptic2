@@ -8,10 +8,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-mkv (info f)
+(defnet parse-mkv (f)
         (deflocal fileinfo complete a)
 
-        (not <info "aborted">)
+        (not <_kv "aborted">)
         (parse-mkv-check f)
         (fsetpos 0 f)
         (set fileinfo (assoc-default (parse-mkv-default)))
@@ -20,9 +20,8 @@
         (set <fileinfo "Tags"> (queue))
         (set <fileinfo "unknown-ids"> (queue))
         (set <fileinfo "tracks"> (assoc))
-        (set <fileinfo "main-info"> info)
-        (set complete <info "complete">)
-        (parse-ebml fileinfo f <info "filesize"> undef "root" -1 complete <info "audio-demux"> a)
+        (set complete <_kv "complete">)
+        (parse-ebml fileinfo f <_kv "filesize"> undef "root" -1 complete <_kv "audio-demux"> a)
         (in <fileinfo "DocType"> [ "matroska" "webm" ])
         (in "Segment->read" fileinfo)
         (parse-mkv-post-check fileinfo)
@@ -31,12 +30,11 @@
         (assoc-clr fileinfo "Tracks->read")
         (assoc-clr fileinfo "Chapters->read")
         (assoc-clr fileinfo "Tags->read")
-        (assoc-clr fileinfo "main-info")
-        (set <info "filetype"> "mkv")
-        (set <info "fileinfo"> fileinfo)
-        (set <info "video"> <fileinfo "video">)
-        (set <info "audio"> <fileinfo "audio">)
-        (set <info "cleaner"> (netptr parse-mkv-clean)) )
+        (set <_kv "filetype"> "mkv")
+        (set <_kv "fileinfo"> fileinfo)
+        (set <_kv "video"> <fileinfo "video">)
+        (set <_kv "audio"> <fileinfo "audio">)
+        (set <_kv "cleaner"> (netptr parse-mkv-clean)) )
 
 (defnet parse-mkv-clean (fileinfo)
         (deflocal track i j)
@@ -677,7 +675,7 @@
         (set <fileinfo "contentencoding" "ContentCompSettings"> raw) )
 
 (defnet parse-mkv-tracks-end (fileinfo f a-demux @arr)
-        (deflocal asc a c i j k l r info acnt)
+        (deflocal asc a c i j k l r acnt)
 
         (assoc-clr fileinfo "track")
         (assoc-clr fileinfo "contentencoding")
@@ -688,7 +686,6 @@
         (set <fileinfo "tracks-array"> a)
         (sort a (funptr less0))
         (set @arr (array (+ (length a) 1)))
-        (set info <fileinfo "main-info">)
         (set acnt 0)
         (for i in a do
                 (set asc (cdr i))
@@ -702,10 +699,9 @@
                         (if (or (= a-demux undef) (= acnt a-demux))
                         then    (set k (aud-create f (if (= c "A_AC3") 3 (if (= c "A_DTS") 5 (if (= c "A_AAC") 7 1))))) )
                         (if (= acnt a-demux)
-                        then    (aud-fpout-begin k <info "audio-fpout">
-                                        (cfg-get-or-default "audio-saving-skip-garbage"
-                                                <info "default"> ))
-                                (set <info "audio-aud"> k) )))
+                        then    (aud-fpout-begin k <_kv "audio-fpout">
+                                        (cfg-get-or-df "audio-saving-skip-garbage") )
+                                (set <_kv "audio-aud"> k) )))
                 (if (or (<> k undef) (and (= a-demux undef) (= <asc "TrackType"> "video")))
                 then    (clr r)
                         (for l in <asc "ContentEncodings"> do

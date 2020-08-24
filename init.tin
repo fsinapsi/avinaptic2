@@ -264,7 +264,7 @@
                 (stringp path)
                 (magic-reinit path) )
         (if (not (magic-available))
-        then    (if (cfg-get-or-default "enabled-magic" <_kv "default">)
+        then    (if (cfg-get-or-df "enabled-magic")
                 then    (iup-message-warning undef
                                 $"`libmagic' is not available (disable `Magic' to remove this message)" ))))
 
@@ -285,7 +285,7 @@
 
 (defnet init-sound-after ()
         (if (not (cli))
-        then    (set <_kv "enabled-sound-alert"> (cfg-get-or-default "enabled-sound-alert" <_kv "default">)) ))
+        then    (set <_kv "enabled-sound-alert"> (cfg-get-or-df "enabled-sound-alert")) ))
 
 (defnet init-sound-th (th)
         (deflocal snd)
@@ -301,30 +301,27 @@
         then    (send undef to <_kv "soundserver">)
                 (thread-join <_kv "soundserver">) ))
 
-(defnet sound-alert ()
+(defnet sound-play (snd)
         (if (not (cli))
-        then    (send (raw-load-static "alert.wav") to <_kv "soundserver">) ))
+        then    (send snd to <_kv "soundserver">) ))
+
+(defnet sound-alert ()
+        (sound-play (raw-load-static "alert.wav")) )
 
 (defnet sound-pop ()
-        (if (not (cli))
-        then    (send (raw-load-static "pop.wav") to <_kv "soundserver">) ))
+        (sound-play (raw-load-static "pop.wav")) )
 
 (defnet sound-info ()
-        (if (not (cli))
-        then    (send (raw-load-static "info.wav") to <_kv "soundserver">) ))
+        (sound-play (raw-load-static "info.wav")) )
 
 (defnet sound-warning ()
-        ; FIXME
-        (if (not (cli))
-        then    (send (raw-load-static "error.wav") to <_kv "soundserver">) ))
+        (sound-play (raw-load-static "warning.wav")) )
 
 (defnet sound-error ()
-        (if (not (cli))
-        then    (send (raw-load-static "error.wav") to <_kv "soundserver">) ))
+        (sound-play (raw-load-static "error.wav")) )
 
 (defnet sound-question ()
-        (if (not (cli))
-        then    (send (raw-load-static "question.wav") to <_kv "soundserver">) ))
+        (sound-play (raw-load-static "question.wav")) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

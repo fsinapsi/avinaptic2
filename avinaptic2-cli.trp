@@ -64,7 +64,7 @@
                 (usage) )
         (opt    (parse0 <_kv "cli-drf">)
                 (dump-file1 <_kv "cli-type"> s)
-                (if (cfg-get-or-default "enabled-utf8bom" <_kv "default">)
+                (if (cfg-get-or-df "enabled-utf8bom")
                 then    (if (<> (utf8-length s) (length s))
                         then    (set s (+ (utf8-bom) s)) ))
                 (if (cms-windows)

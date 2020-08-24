@@ -8,19 +8,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-aud (info f)
+(defnet parse-aud (f)
         (deflocal aud codec)
 
         (set codec 0)
-        (repeat (not <info "aborted">)
-                (parse-aud-check info f aud codec)
+        (repeat (not <_kv "aborted">)
+                (parse-aud-check f aud codec)
                 until (audp aud)
                 (< codec 4)
                 (inc codec 2) )
-        (set <info "filetype"> "aud")
-        (set <info "fileinfo"> aud)
-        (set <info "audio"> 1)
-        (set <info "cleaner"> (netptr parse-aud-clean)) )
+        (set <_kv "filetype"> "aud")
+        (set <_kv "fileinfo"> aud)
+        (set <_kv "audio"> 1)
+        (set <_kv "cleaner"> (netptr parse-aud-clean)) )
 
 (defnet parse-aud-clean (fileinfo)
         (close fileinfo) )
@@ -35,22 +35,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-aud-check (info f @aud codec)
+(defnet parse-aud-check (f @aud codec)
         (deflocal fpout)
 
         (fsetpos 0 f)
         (set @aud (aud-create f codec))
-        (set fpout <info "audio-fpout">)
+        (set fpout <_kv "audio-fpout">)
         (if (<> fpout undef)
         then    (aud-fpout-begin @aud fpout
-                        (cfg-get-or-default "audio-saving-skip-garbage"
-                                <info "default"> ))
+                        (cfg-get-or-df "audio-saving-skip-garbage") )
                 (fsetpos 0 fpout)
-                (set <info "audio-aud"> @aud) )
+                (set <_kv "audio-aud"> @aud) )
         (opt*   (aud-parse @aud 131072)
                 (if (<> (aud-codec @aud) undef)
                 then    (parse-progress f "aud" undef) ))
-        (if (or <info "aborted">
+        (if (or <_kv "aborted">
                 (= (aud-codec @aud) undef)
                 (>= (* 5 (+ (aud-initial-skip @aud)
                             (aud-internal-skip @aud)
@@ -58,9 +57,9 @@
                     (aud-tot-read @aud) ))
         then    (close @aud)
                 (clr @aud)
-                (close <info "progress-win">)
-                (assoc-clr info "progress-win")
-                (assoc-clr info "progress-bar") ))
+                (close <_kv "progress-win">)
+                (assoc-clr _kv "progress-win")
+                (assoc-clr _kv "progress-bar") ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

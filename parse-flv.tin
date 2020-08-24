@@ -8,17 +8,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-flv (info f)
+(defnet parse-flv (f)
         (deflocal fileinfo)
 
-        (not <info "aborted">)
+        (not <_kv "aborted">)
         (fsetpos 0 f)
-        (parse-flv-check info f fileinfo)
-        (set <info "filetype"> "flv")
-        (set <info "video"> <fileinfo "video">)
-        (set <info "audio"> <fileinfo "audio">)
-        (set <info "fileinfo"> fileinfo)
-        (set <info "cleaner"> (netptr parse-flv-clean)) )
+        (parse-flv-check f fileinfo)
+        (set <_kv "filetype"> "flv")
+        (set <_kv "video"> <fileinfo "video">)
+        (set <_kv "audio"> <fileinfo "audio">)
+        (set <_kv "fileinfo"> fileinfo)
+        (set <_kv "cleaner"> (netptr parse-flv-clean)) )
 
 (defnet parse-flv-clean (fileinfo)
         (close <fileinfo "vid">)
@@ -34,7 +34,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-flv-check (info f @fileinfo)
+(defnet parse-flv-check (f @fileinfo)
         (deflocal a v flags vp ap vinfo-read ainfo-read vid aud
                   vid-size complete a-demux
                   frame-cnt vfr enc offs type size ts prev-ts cnt )
@@ -60,8 +60,8 @@
         (set enc false)
         (set cnt 0)
         (set vid-size 0)
-        (set complete <info "complete">)
-        (set a-demux <info "audio-demux">)
+        (set complete <_kv "complete">)
+        (set a-demux <_kv "audio-demux">)
         (opt*   (skip (freaduint-be f 32))                      ; size of previous packet
                 (set type (freaduint-be f 8))                   ; type of this tag
                 (set size (freaduint-be f 24))                  ; datasize
@@ -74,7 +74,7 @@
                 (set v (flags-field type 0 5))
                 (if (= a-demux undef)
                 then    (opt    (case v of
-                                        8       (parse-flv-audio info @fileinfo f size ainfo-read aud)
+                                        8       (parse-flv-audio @fileinfo f size ainfo-read aud)
                                         9       (seq    (parse-flv-video @fileinfo f size vinfo-read vid vid-size)
                                                         (if (and (> frame-cnt 5) (not vfr))
                                                         then    (set vfr (> (abs (- (- ts prev-ts) (/ prev-ts (- frame-cnt 1)))) 1)) )
@@ -83,7 +83,7 @@
                                         18      (seq    (not v)
                                                         (parse-flv-script @fileinfo f size) )))
                 else    (if (= v 8)
-                        then    (parse-flv-audio info @fileinfo f size ainfo-read aud) ))
+                        then    (parse-flv-audio @fileinfo f size ainfo-read aud) ))
                 (or (not vinfo-read)
                     (not ainfo-read)
                     (<> a-demux undef)
@@ -154,7 +154,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse-flv-audio (info fileinfo f size @ainfo-read @aud)
+(defnet parse-flv-audio (fileinfo f size @ainfo-read @aud)
         (deflocal v id afreq abits achan fpout)
 
         (dec-size size 1)
@@ -190,12 +190,11 @@
                         default (set v "unknown") )
                 (if (in v [ "MP3" "AAC" ] )
                 then    (set @aud (aud-create f (if (= v "MP3") 1 7)))
-                        (set fpout <info "audio-fpout">)
+                        (set fpout <_kv "audio-fpout">)
                         (if (<> fpout undef)
                         then    (aud-fpout-begin @aud fpout
-                                        (cfg-get-or-default "audio-saving-skip-garbage"
-                                                <info "default"> ))
-                                (set <info "audio-aud"> @aud) ))
+                                        (cfg-get-or-df "audio-saving-skip-garbage") )
+                                (set <_kv "audio-aud"> @aud) ))
                 (set <fileinfo "acodec"> v)
                 (set <fileinfo "afreq"> afreq)
                 (set <fileinfo "abits"> abits)

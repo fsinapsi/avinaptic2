@@ -40,7 +40,7 @@
 
         (set text (iup-text))
         (iup-set-str-attribute text "MULTILINE" "YES")
-        (iup-set-bool text "READONLY" (not (cfg-get-or-default "text-info-editable" <_kv "default">)))
+        (iup-set-bool text "READONLY" (not (cfg-get-or-df "text-info-editable")))
         (iup-set-str-attribute text "EXPAND" "YES")
         (iup-set-str-attribute text "WORDWRAP" "NO")
         (iup-set-str-attribute text "PADDING" "2x0")

@@ -208,7 +208,7 @@
         (iup-set-bool list2 "DROPDOWN" true)
         (for i in <drf-info "profiles"> do
                 (iup-set-str-attribute list2 (+ (for-pos) 1) <i 0>) )
-        (iup-set-int list2 "VALUE" (+ (cfg-get-or-default-num "profile" <_kv "default">) 1))
+        (iup-set-int list2 "VALUE" (+ (cfg-get-or-df-num "profile") 1))
         (iup-set-callback list2 "ACTION" (netptr drf-generic-changed-cb))
 
         (set avg-int (cfg-setup-framed-spin "Avg int" 0 (drf-graph-avg-int-max) 0 drf-info "sb-avg-int"))

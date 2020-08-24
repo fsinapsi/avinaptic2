@@ -125,6 +125,7 @@
                 (cmacro K_cQ)           (iup-exit-loop)
                 (cmacro K_cO)           (gui-open-cb dlg)
                 (cmacro K_cS)           (gui-save-cb dlg)
+                (cmacro K_cP)           (cfg-cb dlg)
              ;   (cmacro K_UP)           (skip)
              ;   (cmacro K_DOWN)         (skip)
              ;   (cmacro K_PGUP)         (skip)
@@ -170,7 +171,7 @@
                         (gui-setup-menu-item-low (+ $"Save the report as..." (if (cmingw) "\t" "\t\t\t") "") (netptr gui-save-as-cb) "save-as")
                         (gui-setup-menu-item-low $"Export (BBcode)..." (netptr gui-save-as-bbcode-cb) "save-as-bbcode")
                         (gui-setup-menu-item-low $"Export (HTML)..." (netptr gui-save-as-html-cb) "save-as-html")
-                        (gui-setup-menu-item $"Preferences" (netptr cfg-cb))
+                        (gui-setup-menu-item (+ $"Preferences" (if (cmingw) "\t" "\t\t\t\t") "Ctrl+P") (netptr cfg-cb))
                         (iup-separator)
                         (gui-setup-menu-item (+ $"Exit" (if (cmingw) "\t" "\t\t\t\t\t\t") "Ctrl+Q") (netptr iup-cancel-cb)) ))
                 (gui-setup-submenu (+ "&" $"Copy") (iup-menu
@@ -303,7 +304,7 @@
         (set i (<> <_kv "path"> undef))
         (if i
         then    (if <_kv "complete">
-                then    (set drf (vidp (info->vid _kv 0)))
+                then    (set drf (vidp (info->vid 0)))
                 else    (set drf (in <_kv "filetype"> [ "avi" "mkv" "mp4" "flv" ])) )
                 (set srt (= <_kv "filetype"> "srt"))
         else    (set drf false)
@@ -423,7 +424,7 @@
         (opt    (<> <_kv "path"> undef)
                 (gui-disable-menu)
                 (opt    (if <_kv "complete">
-                        then    (info->vid-fps _kv 0 vid fps)
+                        then    (info->vid-fps 0 vid fps)
                                 (drf vid fps)
                         else    (in <_kv "filetype"> [ "avi" "mkv" "mp4" "flv" ])
                                 (alt    (seq    (set fps <_kv "log-x264">)
