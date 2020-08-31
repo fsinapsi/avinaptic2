@@ -85,9 +85,9 @@
 1
 (iso->utf8 "è stato scritto in TreeP da")
 
-"Selected language: "
+"Selected language"
 1
-"Lingua selezionata: "
+"Lingua selezionata"
 
 "Latest version: "
 1
@@ -424,6 +424,10 @@
 "enabled"
 1
 "abilitato"
+
+"disabled"
+1
+"disabilitato"
 
 "Comments"
 1
@@ -764,6 +768,34 @@
 "Ignored extra bytes ("
 1
 "Extra bytes ignorati ("
+
+"Version"
+1
+"Versione"
+
+"Authors"
+1
+"Autori"
+
+"License"
+1
+"Licenza"
+
+"Sound"
+1
+"Suono"
+
+"Source code of"
+1
+"Codice sorgente di"
+
+"There is an update"
+1
+(iso->utf8 "C'è un aggiornamento")
+
+"There are no updates"
+1
+"Non ci sono aggiornamenti"
 
         )
 

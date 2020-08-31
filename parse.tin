@@ -8,8 +8,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet parse () (opt (parse0 false)))
-(defnet parse0 (complete)
+(defnet parse-partial () (opt (parse-low false)))
+(defnet parse-complete () (parse-low true))
+
+(defnet parse-low (complete)
         (deflocal path f)
 
         (set path <_kv "path">)
@@ -107,7 +109,7 @@
         (if (not (cli)) then (parse-progress-low f parser vid)) )
 
 (defnet parse-progress-low (f parser vid)
-        (deflocal win now pos tot pb)
+        (deflocal win now pos tot pb s)
 
         (not <_kv "aborted">)
         (set now (now))
@@ -119,10 +121,11 @@
                 (set <_kv "progress-start-pos"> pos)
                 (parse-progress-setup)
                 (set win <_kv "progress-win">)
-        else    (iup-set-str-attribute <_kv "progress-time"> "TITLE"
-                        (date-s2hhmmss (/ (* (- tot pos)
-                                             (- now <_kv "progress-start-time">) )
-                                          (- pos <_kv "progress-start-pos">) ))))
+        else    (set s (/ (* (- tot pos) (- now <_kv "progress-start-time">))
+                          (- pos <_kv "progress-start-pos">) ))
+                (if (and (rationalp s) (< s 360000))
+                then    (iup-set-str-attribute <_kv "progress-time"> "TITLE"
+                                (date-s2hhmmss s) )))
         (set pb <_kv "progress-bar">)
         (iup-set-double pb "VALUE" (/ pos tot))
         (iup-flush) )
@@ -148,7 +151,7 @@
         (set dlg (iup-dialog hbox))
         (iup-set-dlg-parent <_kv "win"> dlg)
         (iup-set-str-attribute dlg "TITLE" $"Analysis...")
-        (iup-set-str-attribute dlg "DIALOGFRAME" "YES")
+        (iup-set-bool dlg "DIALOGFRAME" true)
         (iup-set-callback dlg "CLOSE_CB" (netptr iup-success-cb))
 
         (iup-show-xy dlg (cmacro IUP_CENTERPARENT) (cmacro IUP_CENTERPARENT))

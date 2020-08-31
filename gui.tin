@@ -31,15 +31,15 @@
 
         (set <_kv "win"> dlg)
         (iup-set-attribute-handle undef "PARENTDIALOG" dlg)
-        (iup-set-str-attribute dlg "TITLE" (+ "AVInaptic (" (version) ")"))
+        (iup-set-str-attribute dlg "TITLE" (+ "AVInaptic (" (date->version (compile-time)) ")"))
         (iup-set-attribute-handle dlg "MENU" (gui-setup-menu))
         (iup-set-callback dlg "CLOSE_CB" (netptr gui-close-cb))
         (iup-set-callback dlg "DROPFILES_CB" (netptr gui-dropfiles-cb))
         (iup-set-callback dlg "K_ANY" (netptr gui-kb-cb))
-        (iup-set-str-attribute dlg "FULLSCREEN" "NO")
+        (iup-set-bool dlg "FULLSCREEN" false)
 
         (if (<> <_kv "path"> undef)
-        then    (parse)
+        then    (parse-partial)
                 (dump) )
 
         (gui-update)
@@ -106,7 +106,7 @@
                                 (parse-log-x264 path i)
                                 (set <_kv "log-x264"> i) )
                         (seq    (set <_kv "path"> path)
-                                (parse) ))
+                                (parse-partial) ))
                 (dump))
         (gui-update) )
 
@@ -186,7 +186,6 @@
                         (gui-setup-menu-item-low $"Full analysis/DRF Graph" (netptr gui-drf-cb) "drf")
                         (gui-setup-menu-item-low $"Set credits position" (netptr gui-credits-cb) "credits") ))
                 (gui-setup-submenu (+ "&" $"Help") (iup-menu
-                        (gui-setup-menu-item $"Check for updates" (netptr gui-check-for-updates-cb))
                         (gui-setup-menu-item $"About AVInaptic" (netptr info-cb)) ))))
         (set <_kv "menu" "widget"> @menu) )
 
@@ -258,12 +257,12 @@
         (set font (cfg-get-or-default "font" default-info))
         (set @wid (iup-text))
         (set <_kv "text"> @wid)
-        (iup-set-str-attribute @wid "MULTILINE" "YES")
-        (iup-set-str-attribute @wid "READONLY" (if (cmingw) "YES" "NO"))
-        (iup-set-str-attribute @wid "CANFOCUS" "NO")
-        (iup-set-str-attribute @wid "EXPAND" "YES")
-        (iup-set-str-attribute @wid "WORDWRAP" "NO")
-        (iup-set-str-attribute @wid "FORMATTING" "YES")
+        (iup-set-bool @wid "MULTILINE" true)
+        (iup-set-bool @wid "READONLY" (cmingw))
+        (iup-set-bool @wid "CANFOCUS" false)
+        (iup-set-bool @wid "EXPAND" true)
+        (iup-set-bool @wid "WORDWRAP" false)
+        (iup-set-bool @wid "FORMATTING" true)
         (iup-set-str-attribute @wid "PADDING" "2x0")
         (iup-set-str-attribute @wid "FONT" font)
         (iup-set-str-attribute @wid "VALUE" "")
@@ -350,7 +349,7 @@
                                 (parse-log-x264 path i)
                                 (set <_kv "log-x264"> i) )
                         (seq    (set <_kv "path"> path)
-                                (parse) ))
+                                (parse-partial) ))
                 (dump) )
         (gui-update) )
 
@@ -428,7 +427,7 @@
                                 (drf vid fps)
                         else    (in <_kv "filetype"> [ "avi" "mkv" "mp4" "flv" ])
                                 (alt    (seq    (set fps <_kv "log-x264">)
-                                                (parse0 true)
+                                                (parse-complete)
                                                 (set <_kv "log-x264"> fps) )
                                         (iup-message-error <_kv "win"> $"The analysis failed") )
                                 (dump) ))
@@ -571,7 +570,7 @@
         (set <_kv "path"> ipath)
         (set <_kv "audio-demux"> <a 0>)
         (set <_kv "audio-fpout"> g)
-        (alt    (seq    (parse0 true)
+        (alt    (seq    (parse-complete)
                         (not <_kv "aborted">)
                         (aud-fpout-end <_kv "audio-aud">)
                         (close g)
@@ -703,43 +702,6 @@
         (iup-message-info dlg
                 (+ $"Attachment(s) saved in folder" nl
                    " `" dest "'" )))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;                                                                      ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defnet gui-check-for-updates-cb (self)
-        (gui-disable-menu)
-        (opt (gui-check-for-updates-low self))
-        (gui-update) )
-
-(defnet gui-check-for-updates-low (self)
-        (deflocal s d i)
-
-        (set i (rint (- (check-for-updates-delay)
-                        (- (now) (cfg-get "last-check-for-updates")) )))
-        (if (and (integerp i) (> i 0))
-        then    (iup-message-warning self (+
-                        $"Sorry, you have to wait " i $" seconds" ))
-                (fail) )
-        (set s (download-as-string
-                (+ (url-home-page) "/code/avinaptic/index.html")) )
-        (alt    (seq    (stringp s)
-                        (search "avinaptic2-20" s i)
-                        (set d (str->date (sub (+ i 11) 8 s)))
-                        (datep d)
-                        (iup-message-info self (+
-                                $"this version: " (date-trunc (compile-time)) nl
-                                $"site version: " d nl ) ))
-                (seq    (iup-message-warning self $"operation failed")
-                        (fail) ))
-        (cfg-set "last-check-for-updates" (now)) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

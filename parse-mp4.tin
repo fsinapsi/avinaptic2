@@ -739,14 +739,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet parse-mp4-bitstreams (fileinfo f)
-        (deflocal complete a-cnt a-demux vid aud cnt off i)
+        (deflocal complete v-cnt a-cnt v-demux a-demux fpout raw vid aud cnt off i progress-first)
 
         (set complete <_kv "complete">)
+        (set v-cnt 0)
         (set a-cnt 0)
+        (set v-demux <_kv "video-demux">)
         (set a-demux <_kv "audio-demux">)
+        (if (<> v-demux undef)
+        then    (set fpout <_kv "video-fpout">)
+                (set raw (raw 65536)) )
+        (if (<> a-demux undef)
+        then    (set fpout <_kv "audio-fpout">) )
         (for i in <fileinfo "tracks"> do
-                (if (= <i "type"> "soun")
-                then    (inc a-cnt) )
+                (set progress-first true)
+                (case <i "type"> of
+                        "vide"  (inc v-cnt)
+                        "soun"  (inc a-cnt) )
                 (set vid <i "low">)
                 (alt    (seq    (= a-demux undef)
                                 (vidp vid)
@@ -757,17 +766,25 @@
                                         (set off (vid-mp4-sample-offset vid cnt))
                                         (<> off undef)
                                         (fsetpos off f)
-                                        (vid-parse vid (vid-mp4-sample-size vid cnt))
+                                        (if (= v-demux undef)
+                                        then    (vid-parse vid (vid-mp4-sample-size vid cnt))
+                                        else    (if (= v-cnt v-demux)
+                                                then    (filecopy-basic f fpout (vid-mp4-sample-size vid cnt) raw) ))
                                         (inc cnt)
                                         (if (= (% cnt 300) 0)
-                                        then    (parse-progress f "mp4" undef) )
+                                        then    (if progress-first
+                                                then    (set <_kv "progress-start-time"> (now))
+                                                        (set <_kv "progress-start-pos"> (fpos f)) )
+                                                (parse-progress f "mp4" undef)
+                                                (set progress-first false) )
                                         (or complete (< cnt (parse-video-frame-min))) ))
-                        (seq    (set aud (car vid))
+                        (seq    (= v-demux undef)
+                                (set aud (car vid))
                                 (audp aud)
                                 (set vid (cdr vid))
                                 (set <i "low"> aud)
                                 (if (= a-cnt a-demux)
-                                then    (aud-fpout-begin aud <_kv "audio-fpout">
+                                then    (aud-fpout-begin aud fpout
                                                 (cfg-get-or-df "audio-saving-skip-garbage") )
                                         (set <_kv "audio-aud"> aud)
                                 else    (= a-demux undef) )
@@ -778,10 +795,16 @@
                                         (aud-parse aud (vid-mp4-sample-size vid cnt))
                                         (inc cnt)
                                         (if (= (% cnt 300) 0)
-                                        then    (parse-progress f "mp4" undef) )
+                                        then    (if progress-first
+                                                then    (set <_kv "progress-start-time"> (now))
+                                                        (set <_kv "progress-start-pos"> (fpos f)) )
+                                                (parse-progress f "mp4" undef)
+                                                (set progress-first false) )
                                         (or complete (< cnt (parse-video-frame-min))) )
                                 (close vid) )
-                        (success) )))
+                        (success) ))
+        (if (<> v-demux undef)
+        then    (close raw) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

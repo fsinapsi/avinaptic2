@@ -290,22 +290,22 @@
 
 (defnet dump-sign-text ()
         (dump-iup-append "inverse-background"
-                (sprint nl $"This report was created by" " AVInaptic (" (version)
+                (sprint nl $"This report was created by" " AVInaptic (" (date->version (compile-time))
                         $") on " (format-date <_kv "time">) )))
 
 (defnet dump-sign-file ()
         (assoc-inc _kv "display-text" (+ ""
-                nl $"This report was created by" " AVInaptic (" (version)
+                nl $"This report was created by" " AVInaptic (" (date->version (compile-time))
                    $") on " (format-date <_kv "time">) nl )))
 
 (defnet dump-sign-bbcode ()
         (assoc-inc _kv "display-text" (+ ""
-                nl $"This report was created by" " [b][url=" (url-home-page) "]AVInaptic[/url][/b] (" (version)
+                nl $"This report was created by" " [b][url=" (url-home-page) "]AVInaptic[/url][/b] (" (date->version (compile-time))
                    $") on " (format-date <_kv "time">) nl )))
 
 (defnet dump-sign-html ()
         (assoc-inc _kv "display-text" (+ ""
-                nl $"This report was created by" " <b><a href=\"" (url-home-page) "\">AVInaptic</a></b> (" (version)
+                nl $"This report was created by" " <b><a href=\"" (url-home-page) "\">AVInaptic</a></b> (" (date->version (compile-time))
                    $") on " (format-date <_kv "time">) nl )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -613,19 +613,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet dump-magic ()
-        (deflocal magic i)
+        (deflocal magic first i)
 
         (set magic <_kv "magic">)
         (if (and (cfg-get-or-df "enabled-magic")
                  (<> magic undef) )
         then    (dump-section "Magic")
+                (set first true)
                 (opt*   (search "\\012- " magic i)
-                        (dump-magic-single (sub 0 i magic))
+                        (dump-magic-single (sub 0 i magic) first)
+                        (set first false)
                         (set magic (sub (+ i 6) (maxint) magic)) )
-                (dump-magic-single magic) ))
+                (dump-magic-single magic first) ))
 
-(defnet dump-magic-single (s)
-        (if (not (lmatch s " (Lepton "))
+(defnet dump-magic-single (s first)
+        (ltrim s ' ' '\t')
+        (rtrim s ' ' '\t')
+        (if (and (not (lmatch s "(Lepton ")) (or first (<> s "data")))
         then    (dump-field $"File type" s) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

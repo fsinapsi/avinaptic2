@@ -62,7 +62,7 @@
         (if (= <_kv "path"> undef)
         then    (quit)
                 (usage) )
-        (opt    (parse0 <_kv "cli-drf">)
+        (opt    (parse-low <_kv "cli-drf">)
                 (dump-file1 <_kv "cli-type"> s)
                 (if (cfg-get-or-df "enabled-utf8bom")
                 then    (if (<> (utf8-length s) (length s))

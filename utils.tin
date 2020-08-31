@@ -10,12 +10,36 @@
 
 (defun url-home-page () "http://fsinapsi.altervista.org")
 
-(defun compile-time () (cdate))
+(defun compile-time () (date (date-year (cdate)) (date-month (cdate)) (date-day (cdate))))
 
-(defun version ()
-        (+ (int->str (date-day (compile-time)) 2 '0') "-"
-           (int->str (date-month (compile-time)) 2 '0') "-"
-           (int->str (date-year (compile-time)) 4 '0') ))
+(defun date->version (date)
+        (+ (int->str (date-day date) 2 '0') "-"
+           (int->str (date-month date) 2 '0') "-"
+           (int->str (date-year date) 4 '0') ))
+
+(defun remote-version () net remote-version)
+(defnet remote-version (@s)
+        (deflocal i)
+
+        (set @s (download-as-string (+ (url-home-page) "/code/avinaptic/index.html")))
+        (stringp @s)
+        (search "avinaptic2-20" @s i)
+        (set @s (str->date (sub (+ i 11) 8 @s)))
+        (datep @s) )
+
+(defun remote-version-cached () net remote-version-cached)
+(defnet remote-version-cached (@s)
+        (deflocal now s)
+
+        (set now (now))
+        (set @s (cfg-get "last-check-for-updates-version"))
+        (set s (- now (cfg-get "last-check-for-updates")))
+        (if (or (= @s undef) (= s undef) (> s (* 60 60 12)))
+        then    (set @s (remote-version))
+                (if (= @s undef)
+                then    (set @s (compile-time)) )
+                (cfg-set "last-check-for-updates-version" @s)
+                (cfg-set "last-check-for-updates" now) ))
 
 (defun gc-version () (gc-version0 (gc-version-major) (gc-version-minor)))
 (defun gc-version0 (maj min)

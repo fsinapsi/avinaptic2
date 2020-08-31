@@ -342,7 +342,7 @@
         (set hbox4 (iup-hbox
                 (cfg-setup-framed-toggle "UTF-8 BOM" $"enabled" (cfg-get-or-default "enabled-utf8bom" default-info) cfg-info "tb-utf8bom")
                 (cfg-setup-framed-toggle $"`Copy/paste' text" $"editable" (cfg-get-or-default "text-info-editable" default-info) cfg-info "tb-text-info-editable")
-                (cfg-setup-framed-toggle "Sound alert" $"enabled" (cfg-get-or-default "enabled-sound-alert" default-info) cfg-info "tb-sound-alert") ))
+                (cfg-setup-framed-toggle $"Sound" $"enabled" (cfg-get-or-default "enabled-sound-alert" default-info) cfg-info "tb-sound-alert") ))
 
         (iup-set-int hbox1 "GAP" 5)
         (iup-set-int hbox2 "GAP" 5)
