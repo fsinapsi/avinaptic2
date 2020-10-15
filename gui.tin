@@ -12,8 +12,8 @@
         (deflocal dlg x y w h w-corr h-corr)
 
         (set x (cfg-get "win-main-position"))
-        (set y (cdr x))
-        (set x (car x))
+        (set y (max 0 (cdr x)))
+        (set x (max 0 (car x)))
         (set w (cfg-get-num "win-main-width"))
         (set h (cfg-get-num "win-main-height"))
         (if (not (integerp x))
@@ -395,8 +395,7 @@
                         then    (iup-message-confirm <_kv "win"> (+ $"File `" path $"' exists." nl
                                                                     $"Do you want to overwrite it?" ))))
                 (call net path)
-                (iup-message-info <_kv "win"> (+ $"Report saved as" nl
-                                                 " `" path "'" ))))
+                (iup-message-info <_kv "win"> (+ $"Report saved as" " `" path "'")) ))
 
 (defnet gui-save-window-cb (self)
         (dump-file undef) )
@@ -566,7 +565,7 @@
         (set _kv (assoc))
         (set <_kv "win"> dlg)
         (set <_kv "soundserver"> <kv "soundserver">)
-        (set <_kv "enabled-sound-alert"> false)
+        (set <_kv "enabled-sound"> false)
         (set <_kv "path"> ipath)
         (set <_kv "audio-demux"> <a 0>)
         (set <_kv "audio-fpout"> g)
@@ -574,13 +573,12 @@
                         (not <_kv "aborted">)
                         (aud-fpout-end <_kv "audio-aud">)
                         (close g)
-                        (set <_kv "enabled-sound-alert"> <kv "enabled-sound-alert">)
-                        (iup-message-info dlg (+ $"Audio track saved as" nl
-                                                 " `" opath "'" )))
+                        (set <_kv "enabled-sound"> <kv "enabled-sound">)
+                        (iup-message-info dlg (+ $"Audio track saved as" " `" opath "'" )) )
                 (seq    (close g)
                         (remove opath)
                         (if (not <_kv "aborted">)
-                        then    (set <_kv "enabled-sound-alert"> <kv "enabled-sound-alert">)
+                        then    (set <_kv "enabled-sound"> <kv "enabled-sound">)
                                 (iup-message-error dlg $"operation failed") )))
         (parse-clean)
         (set _kv kv) )
@@ -639,8 +637,7 @@
         (alt    (seq    (fsetpos (car i) f)
                         (filecopy-basic f g (cdr i) raw)
                         (close raw f g)
-                        (iup-message-info dlg (+ $"Attachment saved as" nl
-                                                 " `" opath "'" )))
+                        (iup-message-info dlg (+ $"Attachment saved as" " `" opath "'")) )
                 (seq    (close raw f g)
                         (remove opath)
                         (iup-message-error dlg $"operation failed") )))
@@ -700,8 +697,7 @@
                                 (iup-message-error dlg $"operation failed") )))
         (close raw f)
         (iup-message-info dlg
-                (+ $"Attachment(s) saved in folder" nl
-                   " `" dest "'" )))
+                (+ $"Attachment(s) saved in folder" " `" dest "'") ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

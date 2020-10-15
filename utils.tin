@@ -402,44 +402,42 @@
 
 (defun ar-desc-mpeg4-asp (ar)
         <[ "Unspecified"
-		"Square pixels"
-		"12:11 (4:3 PAL pixel shape)"
-		"10:11 (4:3 NTSC pixel shape)"
-		"16:11 (16:9 PAL pixel shape)"
-		"40:33 (16:9 NTSC pixel shape)"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Invalid aspect_ratio setting"
-		"Custom pixel shape" ] ar
->)
+                "Square pixels"
+                "12:11 (4:3 PAL pixel shape)"
+                "10:11 (4:3 NTSC pixel shape)"
+                "16:11 (16:9 PAL pixel shape)"
+                "40:33 (16:9 NTSC pixel shape)"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Invalid aspect_ratio setting"
+                "Custom pixel shape" ] ar >)
 
 (defun ar-desc-mpeg4-avc (ar) (ar-desc-mpeg4-avc0 (ar-desc-mpeg4-avc1 ar)))
 (defun ar-desc-mpeg4-avc0 (s) (if (= s undef) "Invalid aspect_ratio setting" s))
 (defun ar-desc-mpeg4-avc1 (ar)
         <[ "Unspecified"
-		"Square pixels"
-		"12:11 (4:3 PAL pixel shape)"
-		"10:11 (4:3 NTSC pixel shape)"
-		"16:11 (16:9 PAL pixel shape)"
-		"40:33 (16:9 NTSC pixel shape)"
-		"24:11"
-		"20:11"
-		"32:11"
-		"80:33"
-		"18:11"
-		"15:11"
-		"64:33"
-		"160:99"
-		"4:3"
-		"3:2"
-		"2:1" ] ar
->)
+                "Square pixels"
+                "12:11 (4:3 PAL pixel shape)"
+                "10:11 (4:3 NTSC pixel shape)"
+                "16:11 (16:9 PAL pixel shape)"
+                "40:33 (16:9 NTSC pixel shape)"
+                "24:11"
+                "20:11"
+                "32:11"
+                "80:33"
+                "18:11"
+                "15:11"
+                "64:33"
+                "160:99"
+                "4:3"
+                "3:2"
+                "2:1" ] ar >)
 
 (defun vop-type-list ()
         [ "I-VOPs" "P-VOPs" "B-VOPs" "S-VOPs" "N-VOPs" ] )
@@ -488,27 +486,27 @@
         (if (cli)
         then    (print "INF: " msg nl)
         else    (sound-info)
-                (iup-info parent msg)
+                (iup-info60 parent msg)
                 (sound-pop) ))
 
 (defnet iup-message-warning (parent msg)
         (if (cli)
         then    (print "WRN: " msg nl)
         else    (sound-warning)
-                (iup-warning parent msg)
+                (iup-warning60 parent msg)
                 (sound-pop) ))
 
 (defnet iup-message-error (parent msg)
         (if (cli)
         then    (print "ERR: " msg nl)
         else    (sound-error)
-                (iup-error parent msg)
+                (iup-error60 parent msg)
                 (sound-pop) ))
 
 (defnet iup-message-confirm (parent msg)
         (if (not (cli))
         then    (sound-question)
-                (iup-confirm parent msg) ))
+                (iup-confirm60 parent msg) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

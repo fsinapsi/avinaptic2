@@ -147,7 +147,7 @@
                     [ "enabled-debug" . "tb-debug" ]
                     [ "enabled-utf8bom" . "tb-utf8bom" ]
                     [ "text-info-editable" . "tb-text-info-editable" ]
-                    [ "enabled-sound-alert" . "tb-sound-alert" ]
+                    [ "enabled-sound" . "tb-sound" ]
                     [ "user-data-grouped" . "tb-user-data-grouped" ]
                     [ "percent-line-normalize" . "tb-percent-line-normalize" ]
                     [ "tile-left" . "tb-tile-left" ]
@@ -160,7 +160,7 @@
                     ] do
                 (cfg-set (car c) (= (iup-get-str-attribute <cfg-info (cdr c)> "VALUE") "ON")) )
 
-        (set <_kv "enabled-sound-alert"> (= (iup-get-str-attribute <cfg-info "tb-sound-alert"> "VALUE") "ON"))
+        (set <_kv "enabled-sound"> (= (iup-get-str-attribute <cfg-info "tb-sound"> "VALUE") "ON"))
         (cfg-set "percent-line-length" (iup-get-int <cfg-info "sb-percent-line-length"> "SPINVALUE"))
         (cfg-set "hex-dump-max" (iup-get-int <cfg-info "sb-hex-dump-max"> "SPINVALUE"))
         (cfg-set "decimals" (iup-get-int <cfg-info "sb-decimals"> "SPINVALUE"))
@@ -342,7 +342,7 @@
         (set hbox4 (iup-hbox
                 (cfg-setup-framed-toggle "UTF-8 BOM" $"enabled" (cfg-get-or-default "enabled-utf8bom" default-info) cfg-info "tb-utf8bom")
                 (cfg-setup-framed-toggle $"`Copy/paste' text" $"editable" (cfg-get-or-default "text-info-editable" default-info) cfg-info "tb-text-info-editable")
-                (cfg-setup-framed-toggle $"Sound" $"enabled" (cfg-get-or-default "enabled-sound-alert" default-info) cfg-info "tb-sound-alert") ))
+                (cfg-setup-framed-toggle $"Sound" $"enabled" (cfg-get-or-default "enabled-sound" default-info) cfg-info "tb-sound") ))
 
         (iup-set-int hbox1 "GAP" 5)
         (iup-set-int hbox2 "GAP" 5)
@@ -386,7 +386,7 @@
 
 (defun cfg-setup-toggle (name status cfg-info key) net cfg-setup-toggle)
 (defnet cfg-setup-toggle (name status cfg-info key @wid)
-        (set @wid (iup-toggle name))
+        (set @wid (iup-toggle (if (iup-gtk3) (+ " " name) name)))
         (set <cfg-info key> @wid)
         (iup-set-str-attribute @wid "VALUE" (if status "ON" "OFF")) )
 

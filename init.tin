@@ -160,7 +160,7 @@
           [ "enabled-debug" . false ]
           [ "enabled-utf8bom" . true ]
           [ "text-info-editable" . false ]
-          [ "enabled-sound-alert" . true ]
+          [ "enabled-sound" . false ]
           [ "audio-saving-skip-garbage" . false ]
           [ "user-data-grouped" . true ]
           [ "bbcode-color-section" . (pix-color 0x38 0xb6 0x0f) ]
@@ -280,21 +280,22 @@
 
 (defnet init-sound-before ()
         (if (not (cli))
-        then    (set <_kv "enabled-sound-alert"> false)
+        then    (set <_kv "enabled-sound"> false)
                 (set <_kv "soundserver"> (thread-create (netptr init-sound-th) (thread-self))) ))
 
 (defnet init-sound-after ()
         (if (not (cli))
-        then    (set <_kv "enabled-sound-alert"> (cfg-get-or-df "enabled-sound-alert")) ))
+        then    (set <_kv "enabled-sound"> (cfg-get-or-df "enabled-sound")) ))
 
 (defnet init-sound-th (th)
         (deflocal snd)
 
-        (opt (sdl-playwav-memory (raw-load-static "silence.wav") 1.0))
+        (opt    (not (cmingw))
+                (sdl-playwav-memory (raw-load-static "silence.wav") 1.0) )
         (repeat (receive snd from th)
                 until (= snd undef)
-                (opt    (truep <_kv "enabled-sound-alert">)
-                        (sdl-playwav-memory snd 1.0)) ))
+                (opt    (truep <_kv "enabled-sound">)
+                        (sdl-playwav-memory snd 1.0) )))
 
 (defnet sound-quit ()
         (if (not (cli))

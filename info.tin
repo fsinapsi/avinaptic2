@@ -67,7 +67,7 @@
                         (iup-label $"There are no updates") )
                 (iup-label
                         $"Selected language" ": " <(languages) (lang)> nl
-                        $"Sound" ": " (if <_kv "enabled-sound-alert"> $"enabled" $"disabled") nl
+                        $"Sound" ": " (if <_kv "enabled-sound"> $"enabled" $"disabled") nl
                         "GC version: " (gc-version) nl
                         "GMP version: " (gmp-version) nl
                         "IUP version: " (iup-version) nl
@@ -85,6 +85,7 @@
         (set @wid (iup-vbox
                 (iup-label "AVInaptic " $"was coded in TreeP by" " Frank Sinapsi")
                 (iup-link (url-home-page))
+                (iup-label "\n" $"Please report bugs to")
                 (iup-link "mailto:fsinapsi@yahoo.it" "fsinapsi@yahoo.it")
                 (iup-label "\n" $"Source code of" " " "TreeP")
                 (iup-link "https://github.com/fsinapsi/TreeP")
@@ -101,16 +102,16 @@
         (iup-set-bool @wid "WORDWRAP" false)
         (iup-set-str-attribute @wid "PADDING" "2x0")
         (iup-set-str-attribute @wid "VALUE" (+
-                (if (= (lang) 1) (iso->utf8
-                "AVInaptic è un software libero: puoi ridistribuirlo e/o\n" \
+                (if (= (lang) 1)
+                "AVInaptic Ã¨ un software libero: puoi ridistribuirlo e/o\n" \
                 "modificarlo secondo i termini della GNU General Public License\n" \
                 "come pubblicata da Free Software Foundation, versione 3 della\n" \
                 "licenza o (a tua scelta) qualsiasi versione successiva.\n" \
                 "\n" \
-                "AVInaptic è distribuito nella speranza che sia utile, ma\n" \
+                "AVInaptic Ã¨ distribuito nella speranza che sia utile, ma\n" \
                 "SENZA ALCUNA GARANZIA; senza nemmeno la garanzia implicita di\n" \
-                "COMMERCIABILITÀ o IDONEITÀ PER UNO SCOPO PARTICOLARE.\n" \
-                "Vedere la GNU General Public License per maggiori dettagli." )
+                "COMMERCIABILITÃ€ o IDONEITÃ€ PER UNO SCOPO PARTICOLARE.\n" \
+                "Vedere la GNU General Public License per maggiori dettagli."
 
                 "AVInaptic is free software: you can redistribute it and/or modify it\n" \
                 "under the terms of the GNU General Public License as published by the\n" \

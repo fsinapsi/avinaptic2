@@ -55,11 +55,11 @@
 
 "Analysis not complete"
 1
-(iso->utf8 "L'analisi non è completa")
+"L'analisi non Ã¨ completa"
 
 "Analysis aborted"
 1
-(iso->utf8 "L'analisi è stata interrotta")
+"L'analisi Ã¨ stata interrotta"
 
 "File type"
 1
@@ -83,7 +83,7 @@
 
 "was coded in TreeP by"
 1
-(iso->utf8 "è stato scritto in TreeP da")
+"Ã¨ stato scritto in TreeP da"
 
 "Selected language"
 1
@@ -91,7 +91,7 @@
 
 "Latest version: "
 1
-(iso->utf8 "Versione più recente: ")
+"Versione piÃ¹ recente: "
 
 "Copy-and-paste"
 1
@@ -135,7 +135,7 @@
 
 "Luminance"
 1
-(iso->utf8 "Luminosità")
+"LuminositÃ "
 
 "Contrast"
 1
@@ -183,7 +183,7 @@
 
 "Average DRF quality"
 1
-(iso->utf8 "Qualità DRF medio")
+"QualitÃ  DRF medio"
 
 "Average DRF"
 1
@@ -191,7 +191,7 @@
 
 "Standard deviation quality"
 1
-(iso->utf8 "Qualità deviazione standard")
+"QualitÃ  deviazione standard"
 
 "Standard deviation"
 1
@@ -315,7 +315,7 @@
 
 "Profile compliancy"
 1
-(iso->utf8 "Conformità al profilo")
+"ConformitÃ  al profilo"
 
 "Max consecutive B-VOPs"
 1
@@ -363,7 +363,7 @@
 
 "The current operation will be aborted.\nAre you sure?"
 1
-(iso->utf8 "L'operazione verrà interrotta.\nConfermi?")
+"L'operazione verrÃ  interrotta.\nConfermi?"
 
 "Preferences"
 1
@@ -475,7 +475,7 @@
 
 "' exists."
 1
-(iso->utf8 "' esiste già.")
+"' esiste giÃ ."
 
 "Please select a different name."
 1
@@ -483,7 +483,7 @@
 
 "' will be deleted."
 1
-(iso->utf8 "' verrà rimosso.")
+"' verrÃ  rimosso."
 
 "Are you sure?"
 1
@@ -655,7 +655,7 @@
 
 "The analysis failed"
 1
-(iso->utf8 "L'analisi è fallita")
+"L'analisi Ã¨ fallita"
 
 "Starting video frames to ignore:"
 1
@@ -679,7 +679,7 @@
 
 "operation failed"
 1
-(iso->utf8 "l'operazione è fallita")
+"l'operazione Ã¨ fallita"
 
 "Attachment"
 1
@@ -735,15 +735,15 @@
 
 "' failed"
 1
-(iso->utf8 "' è fallita")
+"' Ã¨ fallita"
 
 "the settings file was saved as"
 1
-(iso->utf8 "il file di configurazione è stato salvato come")
+"il file di configurazione Ã¨ stato salvato come"
 
 "creation of settings file failed"
 1
-(iso->utf8 "la creazione del file di configurazione è fallita")
+"la creazione del file di configurazione Ã¨ fallita"
 
 "cannot open `"
 1
@@ -751,7 +751,7 @@
 
 "`libmagic' is not available (disable `Magic' to remove this message)"
 1
-(iso->utf8 "`libmagic' non è disponibile (per rimuovere questo messaggio disabilita `Magic')")
+"`libmagic' non Ã¨ disponibile (per rimuovere questo messaggio disabilita `Magic')"
 
 ": invalid option"
 1
@@ -791,11 +791,15 @@
 
 "There is an update"
 1
-(iso->utf8 "C'è un aggiornamento")
+"C'Ã¨ un aggiornamento"
 
 "There are no updates"
 1
 "Non ci sono aggiornamenti"
+
+"Please report bugs to"
+1
+"Si prega di segnalare errori a"
 
         )
 
