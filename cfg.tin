@@ -352,6 +352,8 @@
         (iup-set-callback <cfg-info "tb-chapters"> "ACTION" (netptr cfg-chapter-enabled-toggled))
         (cfg-chapter-enabled-toggled <cfg-info "tb-chapters">)
 
+        (iup-set-callback <cfg-info "tb-sound"> "ACTION" (netptr cfg-sound-enabled-toggled))
+
         (set @wid (iup-vbox hbox1 hbox2 hbox3 hbox4))
         (iup-set-int @wid "GAP" 2) )
 
@@ -523,6 +525,10 @@
 
 (defnet cfg-chapter-enabled-toggled (but)
         (iup-set-bool <_kv "cfg-info" "tb-chapter-display-grouped"> "ACTIVE" (= (iup-get-str-attribute but "VALUE") "ON")) )
+
+(defnet cfg-sound-enabled-toggled (but)
+        (if (and (cmingw) (= (iup-get-str-attribute but "VALUE") "ON"))
+        then    (iup-message-warning but $"Warning: sound may cause crashes on some systems") ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

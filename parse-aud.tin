@@ -57,9 +57,7 @@
                     (aud-tot-read @aud) ))
         then    (close @aud)
                 (clr @aud)
-                (close <_kv "progress-win">)
-                (assoc-clr _kv "progress-win")
-                (assoc-clr _kv "progress-bar") ))
+                (parse-progress-close) ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

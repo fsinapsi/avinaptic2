@@ -51,12 +51,7 @@
                 (if (not <_kv "aborted">)
                 then    (assoc-clr _kv "filetype") ))
         (close f)
-        (if (<> <_kv "progress-win"> undef)
-        then    (iup-set-bool <_kv "progress-win"> "SIMULATEMODAL" false)
-                (close f <_kv "progress-win">)
-                (close <_kv "progress-img">)
-                (assoc-clr _kv "progress-win")
-                (assoc-clr _kv "progress-bar") )
+        (parse-progress-close)
         (if <_kv "aborted">
         then    (set <_kv "complete"> false) )
         (set <_kv "path"> path)
@@ -172,6 +167,14 @@
         (alt    (seq    (iup-message-confirm self $"The current operation will be aborted.\nAre you sure?")
                         (set <_kv "aborted"> true) )
                 (assoc-inc _kv "progress-start-time" (- (now) d)) ))
+
+(defnet parse-progress-close ()
+        (if (<> <_kv "progress-win"> undef)
+        then    (iup-set-bool <_kv "progress-win"> "SIMULATEMODAL" false)
+                (close <_kv "progress-win">)
+                (close <_kv "progress-img">)
+                (assoc-clr _kv "progress-win")
+                (assoc-clr _kv "progress-bar") ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
