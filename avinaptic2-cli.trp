@@ -51,6 +51,7 @@
                 "  --out=<out-path>" nl
                 "  --mgc=<mgc-path>" nl
                 "  --drf" nl
+                "  --show-progress" nl
                 "  --bbcode" nl
                 "  --html" nl )
         (exit -1) )

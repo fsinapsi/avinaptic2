@@ -104,7 +104,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet parse-progress (f parser vid)
-        (if (not (cli)) then (parse-progress-low f parser vid)) )
+        (if (cli)
+        then    (parse-progress-cli f parser vid)
+        else    (parse-progress-low f parser vid) ))
+
+(defnet parse-progress-cli (f parser vid)
+        (if <_kv "cli-show-progress">
+        then    (fprint (stderr) " progress: " (approx1 (/ (fpos f) <_kv "filesize"> 0.01)) "%    \r")
+                (fflush (stderr)) ))
 
 (defnet parse-progress-low (f parser vid)
         (deflocal win now pos tot pb s)
@@ -129,9 +136,6 @@
         (iup-flush) )
 
 (defnet parse-progress-setup ()
-        (if (not (cli)) then (parse-progress-setup-low)) )
-
-(defnet parse-progress-setup-low ()
         (deflocal gauge label button hbox dlg q)
 
         (set gauge (iup-gauge))
@@ -169,12 +173,16 @@
                 (assoc-inc _kv "progress-start-time" (- (now) d)) ))
 
 (defnet parse-progress-close ()
-        (if (<> <_kv "progress-win"> undef)
-        then    (iup-set-bool <_kv "progress-win"> "SIMULATEMODAL" false)
-                (close <_kv "progress-win">)
-                (close <_kv "progress-img">)
-                (assoc-clr _kv "progress-win")
-                (assoc-clr _kv "progress-bar") ))
+        (if (cli)
+        then    (if <_kv "cli-show-progress">
+                then        (fprint (stderr) nl)
+                            (fflush (stderr)) )
+        else    (if (<> <_kv "progress-win"> undef)
+                then    (iup-set-bool <_kv "progress-win"> "SIMULATEMODAL" false)
+                        (close <_kv "progress-win">)
+                        (close <_kv "progress-img">)
+                        (assoc-clr _kv "progress-win")
+                        (assoc-clr _kv "progress-bar") )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

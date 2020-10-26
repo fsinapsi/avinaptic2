@@ -36,7 +36,8 @@
 
         (if (cli)
         then    (set <_kv "cli-drf"> false)
-                (set <_kv "cli-type"> "file") )
+                (set <_kv "cli-type"> "file")
+                (set <_kv "cli-show-progress"> false) )
         (for i in 1 .. (- (argc) 1) do
                 (set p (argv i))
                 (alt    (lmatch p "-psn")       ; questa specie di opzione va ignorata
@@ -58,6 +59,9 @@
                         (seq    (= (cli) true)
                                 (lmatch remove p "--out=")
                                 (set <_kv "cli-out-path"> p) )
+                        (seq    (= (cli) true)
+                                (= p "--show-progress")
+                                (set <_kv "cli-show-progress"> true) )
                         (seq    (= path undef)
                                 (set f (fopenro p))
                                 (<> f undef)
