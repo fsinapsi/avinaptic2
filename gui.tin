@@ -96,6 +96,7 @@
 (defnet gui-dropfiles-cb (self path num x y)
         (deflocal i)
 
+        (set path (adjust-path path))
         (gui-disable-menu)
         (opt    (= num 0)
                 (<> <_kv "last-dropped-path"> path)
