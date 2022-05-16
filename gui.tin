@@ -12,20 +12,19 @@
         (deflocal dlg x y w h w-corr h-corr)
 
         (set x (cfg-get "win-main-position"))
-        (set y (max 0 (cdr x)))
-        (set x (max 0 (car x)))
+        (if (= x undef)
+        then    (set x (cmacro IUP_CENTER))
+                (set y (cmacro IUP_CENTER))
+        else    (set y (max 0 (cdr x)))
+                (set x (max 0 (car x))) )
         (set w (cfg-get-num "win-main-width"))
         (set h (cfg-get-num "win-main-height"))
-        (if (not (integerp x))
-        then    (set x (cmacro IUP_CENTER)) )
-        (if (not (integerp y))
-        then    (set y (cmacro IUP_CENTER)) )
         (if (not (integerp w))
         then    (set w 800) )
         (if (not (integerp h))
         then    (set h 600) )
 
-   ;     (print w "x" h "+" x "+" y nl)
+        ;(print w "x" h "+" x "+" y nl)
 
         (set dlg (iup-dialog (gui-setup-main)))
 
@@ -59,7 +58,7 @@
         (set w (+ (iup-get-int dlg "RASTERSIZE") w-corr))
         (set h (+ (iup-get-int2 dlg "RASTERSIZE") h-corr))
 
-   ;    (print w "x" h "+" x "+" y nl)
+        ;(print w "x" h "+" x "+" y nl)
 
         (sqlite3-begin _db)
         (alt    (seq    (cfg-set "win-main-width" w)

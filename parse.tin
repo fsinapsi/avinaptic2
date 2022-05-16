@@ -72,8 +72,8 @@
                 (for i in 1 .. n do
                         (opt    (info->vid-fps-low (for-pos) vid fps)
                                 (set <a (for-pos) 0> vid)
-                                (set <a (for-pos) 1> (vid-qscale-correction-a vid))
-                                (set <a (for-pos) 2> (vid-qscale-correction-b vid)) ))
+                                (set <a (for-pos) 1> (if (cfg-get-or-df "enabled-credits") (vid-qscale-correction-a vid) 0))
+                                (set <a (for-pos) 2> (if (cfg-get-or-df "enabled-credits") (vid-qscale-correction-b vid) 0)) ))
                 (set <_kv "correction"> a) ))
 
 (defnet parse-attach-log-x264 (path)

@@ -409,8 +409,6 @@
                         0xAE 0xB2 0x1C 0x0A
                         0x98 0xD7 0xA4 0x4D ]
 
-
-
                       ; ext stream audio
                       [ 0x9d 0x8c 0x17 0x31
                         0xe1 0x03 0x28 0x45
@@ -519,8 +517,6 @@
                    "Payload Extension System Pixel Aspect Ratio"
                    "Payload Extension System Sample Duration"
                    "Payload Extension System Encryption Sample ID"
-
-
 
                    "Extended Stream Audio"
                    "guid sconosciuto 1"

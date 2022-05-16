@@ -42,11 +42,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstart avinaptic2)
+(defstart avinaptic)
 
 (defun cli () false)
 
-(defnet avinaptic2 ()
+(defnet avinaptic ()
         (set-icon "avinaptic.ico")
         (iup-set-lang)
         (init)

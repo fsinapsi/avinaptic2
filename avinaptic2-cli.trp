@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstart avinaptic2-cli)
+(defstart avinaptic-cli)
 
 (defun cli () true)
 
@@ -56,7 +56,7 @@
                 "  --html" nl )
         (exit -1) )
 
-(defnet avinaptic2-cli ()
+(defnet avinaptic-cli ()
         (deflocal out f s)
 
         (init)

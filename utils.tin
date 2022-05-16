@@ -17,14 +17,16 @@
            (int->str (date-month date) 2 '0') "-"
            (int->str (date-year date) 4 '0') ))
 
+(defun remote-version-key () "avinaptic-win64-20")
+
 (defun remote-version () net remote-version)
 (defnet remote-version (@s)
         (deflocal i)
 
         (set @s (download-as-string (+ (url-home-page) "/code/avinaptic/index.html")))
         (stringp @s)
-        (search "avinaptic2-20" @s i)
-        (set @s (str->date (sub (+ i 11) 8 @s)))
+        (search (remote-version-key) @s i)
+        (set @s (str->date (sub (+ i (- (length (remote-version-key)) 2)) 8 @s)))
         (datep @s) )
 
 (defun remote-version-cached () net remote-version-cached)
@@ -670,7 +672,7 @@
         (queue-put <_kv "da-chiudere"> obj) )
 
 (defnet quit ()
-        (deflocal obj i)
+        (deflocal obj)
 
         (for obj in <_kv "da-chiudere"> do
                 (close obj) )

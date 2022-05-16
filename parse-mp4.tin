@@ -448,7 +448,7 @@
         (skip) )
 
 (defnet parse-mp4-hdlr (fileinfo f size)
-        (deflocal trckinfo version flags type)
+        (deflocal trckinfo version flags type name)
 
         (set trckinfo <fileinfo "track">)
         (parse-mp4-box-version f version flags size)
@@ -459,10 +459,14 @@
         (skip (freaduint-be f 32))
         (skip (freaduint-be f 32))
         (skip (freaduint-be f 32))
-        (if (not <fileinfo "isomedia">)
-        then    (dec-size size 1)
-                (skip (freaduint-be f 8)) )
-        (set <trckinfo "name"> (utf8-validate (freadstr f size))) )
+        ;(if (not <fileinfo "isomedia">)
+        ;then    (dec-size size 1)
+        ;        (skip (freaduint-be f 8)) )
+        (set name (freadstr f size))
+        (opt*   (> (length name) 0)
+                (< <name 0> ' ')
+                (set name (sub 1 (maxint) name)) )
+        (set <trckinfo "name"> (utf8-validate name)) )
 
 (defnet parse-mp4-vmhd (fileinfo f size)
         (skip) )

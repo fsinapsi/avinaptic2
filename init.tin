@@ -8,7 +8,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defglobal _db _kv)
+(defglobal _kv)
 
 (defnet init ()
         (set _kv (assoc))
@@ -164,7 +164,8 @@
           [ "enabled-debug" . false ]
           [ "enabled-utf8bom" . true ]
           [ "text-info-editable" . false ]
-          [ "enabled-sound" . false ]
+          [ "enabled-sound" . true ]
+          [ "enabled-credits" . true ]
           [ "audio-saving-skip-garbage" . false ]
           [ "user-data-grouped" . true ]
           [ "bbcode-color-section" . (pix-color 0x38 0xb6 0x0f) ]

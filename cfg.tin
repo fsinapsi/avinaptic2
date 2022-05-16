@@ -8,55 +8,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defnet cfg-set (key val)
-        (set key (sqlite3-escape-strings key))
-        (if (= val undef)
-        then    (sqlite3-exec _db undef
-                        "DELETE FROM config WHERE key='" key "'" )
-        else    (if (stringp val)
-                then    (set val (sqlite3-escape-strings val)) )
-                (alt    (sqlite3-exec _db undef
-                                "INSERT INTO config VALUES('" key "','" val "')" )
-                        (sqlite3-exec _db undef
-                                "UPDATE config SET value='" val
-                                "' WHERE key='" key "'" ))))
-
-(defnet cfg-inc (key val)
-        (deflocal v)
-
-        (set v (cfg-get-num key))
-        (cfg-set key (+ (if (= v undef) 0 v) val)) )
-
-(defun cfg-get (key)
-        <(sqlite3-exec _db
-                "SELECT value FROM config WHERE key='"
-                (sqlite3-escape-strings key) "'" ) 0 0> )
-
-(defun cfg-get-or-default (key default-info) net cfg-get-or-default)
-(defnet cfg-get-or-default (key default-info @val)
-        (set @val (cfg-get key))
-        (if (= @val undef)
-        then    (set @val <default-info key>) ))
-
 (defun cfg-get-or-df (key)
         (cfg-get-or-default key <_kv "default">) )
 
-(defun cfg-get-num (key)
-        (cfg-validate-num (cfg-get key)) )
-
 (defun cfg-get-or-df-num (key)
         (cfg-validate-num (cfg-get-or-df key) ))
-
-(defun cfg-get-or-default-num (key default-info)
-        (cfg-validate-num (cfg-get-or-default key default-info)) )
-
-(defun cfg-validate-num (val)
-        (if (complexp val) val (str->num val)) )
-
-(defun cfg-get-lang() net cfg-get-lang)
-(defnet cfg-get-lang (@lang)
-        (set @lang (cfg-get "lang"))
-        (set @lang (if (= @lang undef) (lang) (cfg-validate-num @lang))) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -115,12 +71,12 @@
         (set cfg-info <_kv "cfg-info">)
 
         (set text <_kv "text">)
-        (set c (iup-button-color-value <cfg-info "cb-background">))
+        (set c (iup-bgcolor <cfg-info "cb-background">))
         (cfg-set "color-background" c)
         (iup-set-str-attribute text "BGCOLOR" (sprint (pix-color-red c) " " (pix-color-green c) " " (pix-color-blue c)))
-        (cfg-set "color-section" (iup-button-color-value <cfg-info "cb-section">))
-        (cfg-set "color-field" (iup-button-color-value <cfg-info "cb-field">))
-        (cfg-set "color-value" (iup-button-color-value <cfg-info "cb-value">))
+        (cfg-set "color-section" (iup-bgcolor <cfg-info "cb-section">))
+        (cfg-set "color-field" (iup-bgcolor <cfg-info "cb-field">))
+        (cfg-set "color-value" (iup-bgcolor <cfg-info "cb-value">))
         (set c (iup-button-font-value <cfg-info "fb">))
         (cfg-set "font" c)
         (iup-set-str-attribute text "FONT" c)
@@ -130,9 +86,9 @@
         (cfg-set "length-value" (iup-get-int <cfg-info "sb-length-value"> "SPINVALUE"))
         (cfg-set "indent-pattern" (iup-get-str-attribute <cfg-info "e-indent-pattern"> "VALUE"))
         (cfg-set "tile-pattern" (iup-get-str-attribute <cfg-info "e-tile-pattern"> "VALUE"))
-        (cfg-set "bbcode-color-section" (iup-button-color-value <cfg-info "cb-bbcode-section">))
-        (cfg-set "bbcode-color-field" (iup-button-color-value <cfg-info "cb-bbcode-field">))
-        (cfg-set "bbcode-color-value" (iup-button-color-value <cfg-info "cb-bbcode-value">))
+        (cfg-set "bbcode-color-section" (iup-bgcolor <cfg-info "cb-bbcode-section">))
+        (cfg-set "bbcode-color-field" (iup-bgcolor <cfg-info "cb-bbcode-field">))
+        (cfg-set "bbcode-color-value" (iup-bgcolor <cfg-info "cb-bbcode-value">))
 
         (for c in [ [ "enabled-magic" . "tb-magic" ]
                     [ "enabled-id3tag" . "tb-id3tag" ]
@@ -148,6 +104,7 @@
                     [ "enabled-utf8bom" . "tb-utf8bom" ]
                     [ "text-info-editable" . "tb-text-info-editable" ]
                     [ "enabled-sound" . "tb-sound" ]
+                    [ "enabled-credits" . "tb-credits" ]
                     [ "user-data-grouped" . "tb-user-data-grouped" ]
                     [ "percent-line-normalize" . "tb-percent-line-normalize" ]
                     [ "tile-left" . "tb-tile-left" ]
@@ -331,13 +288,14 @@
                 (cfg-setup-framed-toggle $"Comments" $"enabled" (cfg-get-or-default "enabled-comment" default-info) cfg-info "tb-comment")
                 (cfg-setup-framed-toggle $"Attachments" $"enabled" (cfg-get-or-default "enabled-attachments" default-info) cfg-info "tb-attachments")
                 (cfg-setup-framed-toggle $"Chapters" $"enabled" (cfg-get-or-default "enabled-chapters" default-info) cfg-info "tb-chapters")
-                (cfg-setup-framed-toggle "ChapterDisplay" $"grouped" (cfg-get-or-default "chapter-display-grouped" default-info) cfg-info "tb-chapter-display-grouped") ))
+                (cfg-setup-framed-toggle "ChapterDisplay" $"grouped" (cfg-get-or-default "chapter-display-grouped" default-info) cfg-info "tb-chapter-display-grouped")
+                (cfg-setup-framed-toggle "Debug infos" $"enabled" (cfg-get-or-default "enabled-debug" default-info) cfg-info "tb-debug") ))
 
         (set hbox3 (iup-hbox
                 (cfg-setup-framed-toggle "x264 log" $"enabled" (cfg-get-or-default "enabled-x264-log" default-info) cfg-info "tb-log-x264")
                 (cfg-setup-framed-toggle "User data" $"grouped" (cfg-get-or-default "user-data-grouped" default-info) cfg-info "tb-user-data-grouped")
                 (cfg-setup-framed-toggle $"Audio saving" "skip garbage" (cfg-get-or-default "audio-saving-skip-garbage" default-info) cfg-info "tb-audio-saving-skip-garbage")
-                (cfg-setup-framed-toggle "Debug infos" $"enabled" (cfg-get-or-default "enabled-debug" default-info) cfg-info "tb-debug") ))
+                (cfg-setup-framed-toggle "Credits correction" $"enabled" (cfg-get-or-default "enabled-credits" default-info) cfg-info "tb-credits") ))
 
         (set hbox4 (iup-hbox
                 (cfg-setup-framed-toggle "UTF-8 BOM" $"enabled" (cfg-get-or-default "enabled-utf8bom" default-info) cfg-info "tb-utf8bom")
@@ -351,8 +309,6 @@
 
         (iup-set-callback <cfg-info "tb-chapters"> "ACTION" (netptr cfg-chapter-enabled-toggled))
         (cfg-chapter-enabled-toggled <cfg-info "tb-chapters">)
-
-        (iup-set-callback <cfg-info "tb-sound"> "ACTION" (netptr cfg-sound-enabled-toggled))
 
         (set @wid (iup-vbox hbox1 hbox2 hbox3 hbox4))
         (iup-set-int @wid "GAP" 2) )
@@ -525,10 +481,6 @@
 
 (defnet cfg-chapter-enabled-toggled (but)
         (iup-set-bool <_kv "cfg-info" "tb-chapter-display-grouped"> "ACTIVE" (= (iup-get-str-attribute but "VALUE") "ON")) )
-
-(defnet cfg-sound-enabled-toggled (but)
-        (if (and (cmingw) (= (iup-get-str-attribute but "VALUE") "ON"))
-        then    (iup-message-warning but $"Warning: sound may cause crashes on some systems") ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
