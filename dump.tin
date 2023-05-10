@@ -826,10 +826,17 @@
                 else    (dump-field i (if (rationalp v) (approx v <_kv "decimals">) v)) )))
 
 (defnet dump-generic-pix (fileinfo)
-        (dump-field $"Image format" <fileinfo 0>)
-        (dump-resolution $"Resolution" <fileinfo 1> <fileinfo 2>)
-        (dump-field $"Luminance" (approx <fileinfo 3> <_kv "decimals">))
-        (dump-field $"Contrast" (approx <fileinfo 4> <_kv "decimals">)) )
+        (deflocal w h)
+
+        (set w <fileinfo 1>)
+        (set h <fileinfo 2>)
+        (dump-field $"Image loader" <fileinfo 0>)
+        (if (and (rationalp w) (rationalp h) (> w 0) (> h 0))
+        then    (dump-field $"Resolution" (sprint (approx w <_kv "decimals">)
+                                                  " x " (approx h <_kv "decimals">) )))
+        (dump-field "Color" <fileinfo 3>)
+        (dump-field $"Luminance" (approx <fileinfo 4> <_kv "decimals">))
+        (dump-field $"Contrast" (approx <fileinfo 5> <_kv "decimals">)) )
 
 (defnet dump-generic-hex-dump ()
         (deflocal c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 ca cb cc cd ce cf
@@ -1401,19 +1408,30 @@
         (set video <_kv "video">)
         (set a <_kv "correction">)
         (for i in 1 .. video do
-                (opt    (info->vid-fps-low (for-pos) vid fps)
-                        (set j (vid-bitstream-type vid))
-                        (in j [ 1 2 3 ])
-                        (dump-section
-                                (+ $"Video bitstream"
-                                   (if (> video 1) (+ " nr. " i) "") ))
-                        (dump-bitstream-vid0 vid j fps <a (for-pos) 1> <a (for-pos) 2>) )))
+                (alt    (seq    (info->vid-fps-low (for-pos) vid fps)
+                                (set j (vid-bitstream-type vid))
+                                (in j [ 1 2 3 ])
+                                (dump-section
+                                        (+ $"Video bitstream"
+                                           (if (> video 1) (+ " nr. " i) "") ))
+                                (dump-bitstream-vid0 vid j fps <a (for-pos) 1> <a (for-pos) 2>) )
+                        (seq    (= video 1)
+                                (set j (x265-user-data <_kv "path">))
+                                (stringp j)
+                                (dump-section $"Video bitstream")
+                                (dump-field $"Bitstream type" "H.265/HEVC")
+                                (dump-bitstream-vid-user-data (list j)) )
+                        (success) )))
 
 (defnet dump-bitstream-vid0 (vid bs-type fps tosub-a tosub-b)
         (deflocal i j)
 
         (dump-field $"Bitstream type"
                 <[ "MPEG-4 Part 2" "MS-MPEG4" "MPEG-4 Part 10" ] (- bs-type 1)> )
+
+        (if (vid-qpneg vid)
+        then    (dump-field $"Warning"
+                        $"detected QP < 0" ))
 
         (if (vid-missing-vol vid)
         then    (dump-field $"Note"
@@ -1424,7 +1442,7 @@
         then    (dump-field $"Error" i)
                 (fail) )
 
-        (dump-bitstream-vid-user-data vid)
+        (dump-bitstream-vid-user-data (vid-userdata vid))
 
         (if (in bs-type [ 1 2 ])
         then    (dump-bitstream-vid-mpeg4-asp vid)
@@ -1443,16 +1461,16 @@
         (if (or (> tosub-a 0) (> tosub-b 0))
         then    (dump-drf vid fps tosub-a tosub-b) ))
 
-(defnet dump-bitstream-vid-user-data (vid)
+(defnet dump-bitstream-vid-user-data (list)
         (deflocal grouped max nodup acc i j)
 
         (set grouped (cfg-get-or-df "user-data-grouped"))
         (set max <_kv "length-value">)
         (set nodup (assoc))
-        (for i in (vid-userdata vid) do
+        (for i in list do
                 (set i (utf8-validate (rtrim i '' ' ' '\t' '\r' '\n')))
                 (alt    (= i "")
-                        (seq    (lmatch i "x264")
+                        (seq    (lmatch i "x264" "x265")
                                 (set acc "")
                                 (opt*   (search " - " i j)
                                         (dump-bitstream-vid-user-data-put grouped max acc (sub 0 j i) nodup)
@@ -1694,23 +1712,23 @@
                 (for i in 1 .. max-qscale do
                         (set nmax (max nmax (cnt-qscale vid i types tosub-a tosub-b))) )
 
-                (set i 1)
+                (set i 0)
                 (repeat until (> (cnt-qscale vid i types tosub-a tosub-b) 0)
                         until (= i max-qscale)
-                        (set i (+ i 1)) )
+                        (inc i) )
 
-                (if (> i 1)
+                (if (> i 0)
                 then    (dump-percent-line 0 n nmax j)
-                        (dump-field (sprint "DRF<" i) j) )
+                        (dump-field (+ "DRF<" i) j) )
 
                 (repeat until (= i max-qscale)
                         until (> i max)
                         (dump-percent-line (cnt-qscale vid i types tosub-a tosub-b) n nmax j)
-                        (dump-field (sprint "DRF=" i) j)
-                        (set i (+ i 1)) )
+                        (dump-field (if (= i 0) "DRF<1" (+ "DRF=" i)) j)
+                        (inc i) )
 
                 (dump-percent-line (cnt-qscale vid i types tosub-a tosub-b) n nmax j)
-                (dump-field (sprint "DRF>" (- i 1)) j)
+                (dump-field (+ "DRF>" (- i 1)) j)
 
                 (for type in 0 .. types do
                         (set n (vid-cnt-qscale-cnt vid type tosub-a tosub-b))

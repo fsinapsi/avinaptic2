@@ -488,22 +488,19 @@
         (if (cli)
         then    (print "INF: " msg nl)
         else    (sound-info)
-                (iup-info60 parent msg)
-                (sound-pop) ))
+                (iup-info60 parent msg) ))
 
 (defnet iup-message-warning (parent msg)
         (if (cli)
         then    (print "WRN: " msg nl)
         else    (sound-warning)
-                (iup-warning60 parent msg)
-                (sound-pop) ))
+                (iup-warning60 parent msg) ))
 
 (defnet iup-message-error (parent msg)
         (if (cli)
         then    (print "ERR: " msg nl)
         else    (sound-error)
-                (iup-error60 parent msg)
-                (sound-pop) ))
+                (iup-error60 parent msg) ))
 
 (defnet iup-message-confirm (parent msg)
         (if (not (cli))
@@ -657,6 +654,32 @@
                 (set codec (aud-codec aud))
                 (if (<> codec undef)
                 then    (queue-put @q (list i aud codec)) )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;                                                                      ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun x265-user-data (path) net x265-user-data)
+(defnet x265-user-data (path @s)
+        (deflocal f raw l s)
+
+        (set f (fopenro path))
+        (<> f undef)
+        (set raw (raw 65536))
+        (set l (raw-read raw f))
+        (set s (raw->str raw l))
+        (close raw f)
+        (search-and-cut "x265" s l)
+        (search-and-cut (sprint (int->char 128)) s l)
+        (for f in l do
+                (in f (int->char 32) .. (int->char 127)) )
+        (set @s (+ "x265" l)) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -125,9 +125,9 @@
 1
 "tipo sconosciuto"
 
-"Image format"
+"Image loader"
 1
-"Formato"
+"Loader dell'immagine"
 
 "Resolution"
 1
@@ -244,6 +244,10 @@
 "Bitstream type"
 1
 "Tipo di bitstream"
+
+"detected QP < 0"
+1
+"rilevati QP < 0"
 
 "it seems like the video doesn't start with a keyframe"
 1

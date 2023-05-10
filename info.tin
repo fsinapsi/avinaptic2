@@ -24,7 +24,6 @@
         (set dlg (iup-dialog i))
         (iup-set-dlg-parent self dlg)
         (iup-set-str-attribute dlg "TITLE" $"About AVInaptic")
-        (iup-set-str-attribute dlg "RASTERSIZE" "660x400")
         (iup-set-bool dlg "DIALOGFRAME" true)
         (iup-set-attribute-handle dlg "DEFAULTENTER" (iup-box-ok-btn butbox))
         (iup-set-attribute-handle dlg "DEFAULTESC" (iup-box-ok-btn butbox))
@@ -32,8 +31,6 @@
         (sound-info)
 
         (iup-popup dlg (cmacro IUP_CENTERPARENT) (cmacro IUP_CENTERPARENT))
-
-        (sound-pop)
 
         (close dlg)
         (iup-close-queue q) )
@@ -44,6 +41,8 @@
         (iup-set-str-attribute @wid "TABTITLE0" $"Version")
         (iup-set-str-attribute @wid "TABTITLE1" $"Authors")
         (iup-set-str-attribute @wid "TABTITLE2" $"License")
+        (if (clinux)
+        then    (iup-set-bgcolor @wid (white)) )
         (iup-set-bool @wid "EXPAND" true) )
 
 (defun info-setup-page1 (q) net info-setup-page1)
@@ -181,7 +180,6 @@
 (defnet info-text-close-cb (self)
         (deflocal key)
 
-        (sound-pop)
         (set self (iup-get-dialog self))
         (set key (+ "info-text-windows-" (iup-get-int self "TRPIMG")))
         (close self)

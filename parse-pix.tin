@@ -9,15 +9,29 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defnet parse-pix (f)
-        (deflocal pix)
+        (deflocal pix tipo w h)
 
         (not <_kv "aborted">)
         (set pix (pix-load <_kv "path">))
         (<> pix undef)
+        (if (= (pix-loader pix) "svg")
+        then    (close pix)
+                (set pix (rsvg-load <_kv "path">))
+                (set w (rsvg-width <_kv "path">))
+                (set h (rsvg-height <_kv "path">))
+        else    (set w (width pix))
+                (set h (height pix)) )
+        (if (pix-grayp pix)
+        then    (if (pix-bwp pix)
+                then    (set tipo "b/w")
+                else    (set tipo "gray") )
+        else    (set tipo "color")
+                (if (pix-has-alpha pix)
+                then    (inc tipo " (alpha)") ))
         (set <_kv "filetype"> "pix")
         (set <_kv "fileinfo">
-                (list (pix-image-format pix)
-                      (width pix) (height pix)
+                (list (pix-loader pix)
+                      w h tipo
                       (pix-get-luminance pix)
                       (pix-get-contrast pix) ))
         (close pix) )

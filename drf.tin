@@ -61,7 +61,6 @@
 
         (iup-popup dlg (cmacro IUP_CENTERPARENT) (cmacro IUP_CENTERPARENT))
 
-        (sound-pop)
         (close dlg pix)
         (close <drf-info "img1a"> <drf-info "img1b">
                <drf-info "img2a"> <drf-info "img2b"> )

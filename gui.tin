@@ -51,8 +51,6 @@
 
         (iup-main-loop)
 
-        (sound-pop)
-
         (set x (iup-get-int dlg "SCREENPOSITION"))
         (set y (iup-get-int2 dlg "SCREENPOSITION"))
         (set w (+ (iup-get-int dlg "RASTERSIZE") w-corr))
@@ -126,6 +124,7 @@
                 (cmacro K_cO)           (gui-open-cb dlg)
                 (cmacro K_cS)           (gui-save-cb dlg)
                 (cmacro K_cP)           (cfg-cb dlg)
+                (cmacro K_F5)           (gui-drf-cb dlg)
              ;   (cmacro K_UP)           (skip)
              ;   (cmacro K_DOWN)         (skip)
              ;   (cmacro K_PGUP)         (skip)
@@ -163,45 +162,70 @@
 
 (defun gui-setup-menu () net  gui-setup-menu)
 (defnet gui-setup-menu (@menu)
-        (set <_kv "menu"> (assoc))
-        (set @menu (iup-menu
-                (gui-setup-submenu "&File" (iup-menu
-                        (gui-setup-menu-item (+ $"Open file" (if (cmingw) "\t" "\t\t\t\t\t") "Ctrl+O") (netptr gui-open-cb))
-                        (gui-setup-menu-item-low (+ $"Save the report" (if (cmingw) "\t" "\t\t\t") "Ctrl+S") (netptr gui-save-cb) "save")
-                        (gui-setup-menu-item-low (+ $"Save the report as..." (if (cmingw) "\t" "\t\t\t") "") (netptr gui-save-as-cb) "save-as")
-                        (gui-setup-menu-item-low $"Export (BBcode)..." (netptr gui-save-as-bbcode-cb) "save-as-bbcode")
-                        (gui-setup-menu-item-low $"Export (HTML)..." (netptr gui-save-as-html-cb) "save-as-html")
-                        (gui-setup-menu-item (+ $"Preferences" (if (cmingw) "\t" "\t\t\t\t") "Ctrl+P") (netptr cfg-cb))
-                        (iup-separator)
-                        (gui-setup-menu-item (+ $"Exit" (if (cmingw) "\t" "\t\t\t\t\t\t") "Ctrl+Q") (netptr iup-cancel-cb)) ))
-                (gui-setup-submenu (+ "&" $"Copy") (iup-menu
-                        (gui-setup-menu-item-low $"Report" (netptr gui-save-window-cb) "copy")
-                        (gui-setup-menu-item-low "BBcode" (netptr gui-save-bbcode-window-cb) "copy-bbcode")
-                        (gui-setup-menu-item-low "HTML" (netptr gui-save-html-window-cb) "copy-html") ))
-                (gui-setup-submenu "&Demux" (iup-menu
-                        (gui-setup-menu-item-low $"Save audio track as..." (netptr gui-save-audio-as-cb) "save-audio-as")
-                        (gui-setup-menu-item-low $"Save attachment as..." (netptr gui-save-attachment-as-cb) "save-attachment-as")
-                        (gui-setup-menu-item-low $"Save attachments in..." (netptr gui-save-attachments-in-cb) "save-attachments-in") ))
-                (gui-setup-submenu "&Misc" (iup-menu
-                        (gui-setup-menu-item-low $"Full analysis/DRF Graph" (netptr gui-drf-cb) "drf")
-                        (gui-setup-menu-item-low $"Set credits position" (netptr gui-credits-cb) "credits") ))
-                (gui-setup-submenu (+ "&" $"Help") (iup-menu
-                        (gui-setup-menu-item $"About AVInaptic" (netptr info-cb)) ))))
-        (set <_kv "menu" "widget"> @menu) )
+        (deflocal a q)
 
-(defun gui-setup-submenu (title menu) net gui-setup-submenu)
-(defnet gui-setup-submenu (title menu @submenu)
-        (set @submenu (iup-submenu title menu)) )
-
-(defun gui-setup-menu-item (title cback)
-        (gui-setup-menu-item-low title cback undef) )
-
-(defun gui-setup-menu-item-low (title cback item-name) net gui-setup-menu-item-low)
-(defnet gui-setup-menu-item-low (title cback item-name @item)
-        (set @item (iup-item title))
-        (iup-set-callback @item "ACTION" cback)
-        (if (stringp item-name)
-        then    (set <_kv "menu" item-name> @item) ))
+        (set a (assoc))
+        (set <_kv "menu"> a)
+        (set q <_kv "da-chiudere">)
+        (set @menu (iup-list->menu
+                (list   (list "&File"
+                                (cons (list (+ $"Open file" "\t\t\t\t\tCtrl+O")
+                                            (cons (pix-load-static "22x22/document-open-5.png") q) )
+                                      (netptr gui-open-cb) )
+                                (cons (list (+ $"Save the report" "\t\t\tCtrl+S")
+                                            (cons a "save")
+                                            (cons (pix-load-static "22x22/document-save-5.png") q) )
+                                      (netptr gui-save-cb) )
+                                (cons (list $"Save the report as..."
+                                            (cons a "save-as")
+                                            (cons (pix-load-static "22x22/document-save-as-5.png") q) )
+                                      (netptr gui-save-as-cb) )
+                                (cons (list $"Export (BBcode)..."
+                                            (cons a "save-as-bbcode") )
+                                      (netptr gui-save-as-bbcode-cb) )
+                                (cons (list $"Export (HTML)..."
+                                            (cons a "save-as-html") )
+                                      (netptr gui-save-as-html-cb) )
+                                (cons (list (+ $"Preferences" "\t\t\t\tCtrl+P")
+                                            (cons (pix-load-static "22x22/configure-2.png") q) )
+                                      (netptr cfg-cb) )
+                                (iup-separator)
+                                (cons (list (+ "&" $"Exit" "\t\t\t\t\t\tCtrl+Q")
+                                            (cons (pix-load-static "16x16/application-exit.png") q) )
+                                      (netptr iup-cancel-cb) ))
+                        (list (+ "&" $"Copy")
+                                (cons (list $"Report"
+                                            (cons a "copy") )
+                                      (netptr gui-save-window-cb) )
+                                (cons (list "BBcode"
+                                            (cons a "copy-bbcode") )
+                                      (netptr gui-save-bbcode-window-cb) )
+                                (cons (list "HTML"
+                                            (cons a "copy-html") )
+                                      (netptr gui-save-html-window-cb) ))
+                        (list "&Demux"
+                                (cons (list $"Save audio track as..."
+                                            (cons a "save-audio-as") )
+                                      (netptr gui-save-audio-as-cb) )
+                                (cons (list $"Save attachment as..."
+                                            (cons a "save-attachment-as") )
+                                      (netptr gui-save-attachment-as-cb) )
+                                (cons (list $"Save attachments in..."
+                                            (cons a "save-attachments-in") )
+                                      (netptr gui-save-attachments-in-cb) ))
+                        (list "&Misc"
+                                (cons (list (+ $"Full analysis/DRF Graph" "\tF5")
+                                            (cons a "drf")
+                                            (cons (pix-load-static "22x22/drf.png") q) )
+                                      (netptr gui-drf-cb) )
+                                (cons (list $"Set credits position"
+                                            (cons a "credits") )
+                                      (netptr gui-credits-cb) ))
+                        (list (+ "&" $"Help")
+                                (cons (list $"About AVInaptic"
+                                            (cons (pix-load-static "16x16/info.png") q) )
+                                      (netptr info-cb) )))))
+        (set <a "widget"> @menu) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -343,7 +367,6 @@
 
         (gui-disable-menu)
         (opt    (set path (iup-choose-file-open self $"Open file" (cfg-get "path") undef true))
-                (sound-pop)
                 (stringp path)
                 (alt    (seq    (avcp)
                                 (parse-log-x264 path i)
@@ -502,7 +525,6 @@
 
         (iup-popup dlg (cmacro IUP_CENTERPARENT) (cmacro IUP_CENTERPARENT))
 
-        (sound-pop)
         (set i (iup-get-int dlg "STATUS"))
         (set sb1 (iup-get-int sb1 "SPINVALUE"))
         (set sb2 (iup-get-int sb2 "SPINVALUE"))
