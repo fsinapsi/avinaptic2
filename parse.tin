@@ -80,7 +80,8 @@
         (deflocal i)
 
         (opt    (avcp)
-                (search (sprint (path-separator path)) path i (maxint))
+                (path-fix path path)
+                (search "/" path i (maxint))
                 (set path (sub 0 (+ i 1) path))
                 (alt    (parse-log-x264 (+ path "x264 2nd pass.log") i)
                         (parse-log-x264 (+ path "x264.log") i) )

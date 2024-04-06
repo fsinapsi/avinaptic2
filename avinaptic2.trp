@@ -14,6 +14,8 @@
 (use jbig2)
 (use rsvg)
 (use lept)
+;(use sail)
+(use heif)
 
 (include "common.tin")
 (include "lang.tin")
