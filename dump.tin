@@ -176,7 +176,6 @@
         (assoc-inc _kv "display-text" (+ ""
                 nl
                 "<font color=\"#ff0000\">"
-
                 title
                 "</font>"
                 nl nl )))

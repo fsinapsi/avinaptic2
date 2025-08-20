@@ -43,12 +43,6 @@
                 (cfg-set "last-check-for-updates-version" @s)
                 (cfg-set "last-check-for-updates" now) ))
 
-(defun gc-version () (gc-version0 (gc-version-major) (gc-version-minor)))
-(defun gc-version0 (maj min)
-        (if (or (= maj undef) (= min undef))
-                "< 7.1"
-                (sprint maj '.' min) ))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;                                                                      ;;;;
