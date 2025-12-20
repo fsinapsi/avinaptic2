@@ -296,11 +296,11 @@
         (deflocal snd)
 
         (opt    (not (cmingw))
-                (sdl-playwav-memory (raw-load-static "silence.wav") 1.0) )
+                (wav-play-memory (raw-load-static "silence.wav")) )
         (repeat (receive snd from th)
                 until (= snd undef)
                 (opt    (truep <_kv "enabled-sound">)
-                        (sdl-playwav-memory snd 1.0) )))
+                        (wav-play-memory snd) )))
 
 (defnet sound-quit ()
         (if (not (cli))
